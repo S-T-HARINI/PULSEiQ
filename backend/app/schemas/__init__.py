@@ -49,6 +49,12 @@ from backend.app.schemas.scenario import (
     ScenarioRequest,
     ScenarioResponse,
 )
+from backend.app.schemas.pipeline import (
+    PipelineRunRequest,
+    PipelineRunResponse,
+    PipelineRequest,
+    PipelineResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -88,4 +94,8 @@ __all__ = [
     "ScenarioWhatIfResponse",
     "ScenarioRequest",
     "ScenarioResponse",
+    "PipelineRunRequest",
+    "PipelineRunResponse",
+    "PipelineRequest",
+    "PipelineResponse",
 ]

@@ -497,17 +497,28 @@ class AIModuleBridge:
             if demand_mw is not None and grid.total_demand_mw > 0:
                 growth = demand_mw / grid.total_demand_mw
 
-            if contingency_event or load_growth_factor is not None:
-                scenario = ScenarioConfig(
-                    name=f"Scenario {scenario_id or 'Run'}",
-                    demand_multiplier=growth,
-                    contingencies=contingencies,
-                )
-                sim_grid = grid.apply_scenario(scenario)
-            else:
-                sim_grid = grid
+            solar_mult = 1.0
+            wind_mult = 1.0
+            scen_str = str(scenario_id or "").lower()
+            if "heatwave" in scen_str or "heat" in scen_str:
+                growth *= 1.25
+                solar_mult = 1.10
+                wind_mult = 0.85
+            elif "solar" in scen_str:
+                solar_mult = 0.20
+            elif "wind" in scen_str:
+                wind_mult = 0.05
 
-            sim_result = solve_power_flow(sim_grid, nominal_frequency_hz=60.0)
+            scenario = ScenarioConfig(
+                name=f"Scenario {scenario_id or 'Run'}",
+                demand_multiplier=growth,
+                solar_multiplier=solar_mult,
+                wind_multiplier=wind_mult,
+                contingencies=contingencies,
+            )
+            sim_grid = grid.apply_scenario(scenario)
+
+            sim_result = solve_power_flow(sim_grid, nominal_frequency_hz=50.0)
 
             line_loading = {lid: round(lr.utilization_pct, 2) for lid, lr in sim_result.line_results.items()}
             avg_util = round(sum(line_loading.values()) / max(1, len(line_loading)), 2)
@@ -526,6 +537,15 @@ class AIModuleBridge:
                     affected.append(lid)
             if contingency_event:
                 affected.append(contingency_event)
+                warnings.append(f"Contingency outage active on '{contingency_event}'.")
+
+            calc_risk = 0.08 + (sim_result.overloaded_lines_count * 0.25)
+            if not sim_result.is_frequency_stable:
+                calc_risk += 0.35
+            if contingency_event:
+                calc_risk += 0.30
+            if growth > 1.05:
+                calc_risk += (growth - 1.0) * 0.45
 
             return {
                 "simulation_status": "completed",
@@ -542,7 +562,7 @@ class AIModuleBridge:
                 },
                 "simulation_warnings": warnings,
                 "affected_components": affected,
-                "risk_index": round(min(1.0, max(0.05, sim_result.overloaded_lines_count * 0.2 + (0.3 if not sim_result.is_frequency_stable else 0.0))), 3),
+                "risk_index": round(min(1.0, max(0.05, calc_risk)), 3),
                 "resulting_grid_state": None,
                 "model_source": "ai_module",
                 "details": {
@@ -677,7 +697,8 @@ class AIModuleBridge:
             from ai.pipeline import GridIntelligencePipeline
             grid = self.convert_to_ai_grid(grid_state)
             pipeline = GridIntelligencePipeline()
-            res = pipeline.run(grid, config=config)
+            telemetry = kwargs.get("telemetry")
+            res = pipeline.run(grid, config=config, telemetry=telemetry)
             return res.to_dict()
         except Exception as e:
             logger.warning(f"Error calling real AI pipeline: {e}.", exc_info=True)

@@ -120,6 +120,60 @@ class RiskService:
                     f"On-site backup generation must be dispatched immediately."
                 )
 
+            elif failed_id == "line-central-south-1":
+                affected_components.append(
+                    AffectedComponent(
+                        id="line-north-central-1",
+                        name="North-Central 400kV Trunk",
+                        type="transmission_line",
+                        impact="overloaded",
+                        utilization_or_loading=95.8,
+                    )
+                )
+                affected_components.append(
+                    AffectedComponent(
+                        id="sub-south-1",
+                        name="South Primary Substation",
+                        type="substation",
+                        impact="voltage_sag",
+                        utilization_or_loading=88.0,
+                    )
+                )
+                risk_index = 0.65
+                risk_level = RiskLevel.HIGH
+                affected_load_mw = 75.0
+                cascade_prob = 0.38
+                explanation = f"Outage of corridor {failed_id} forces heavy power redistribution to North-Central trunk with South Substation voltage depression."
+
+            elif failed_id in ("gen-gas-1", "gen-gas"):
+                affected_components.append(
+                    AffectedComponent(
+                        id="bat-bess-1",
+                        name="BESS Battery Storage Substation",
+                        type="battery",
+                        impact="rapid_discharge",
+                        utilization_or_loading=94.0,
+                    )
+                )
+                risk_index = 0.72
+                risk_level = RiskLevel.HIGH
+                affected_load_mw = 120.0
+                cascade_prob = 0.28
+                explanation = f"Loss of 350 MW Gas CCGT generation creates significant supply deficit; BESS emergency injection and fast-start reserves engaged."
+
+            elif failed_id in ("gen-solar-1", "gen-wind-1"):
+                risk_index = 0.42
+                risk_level = RiskLevel.MODERATE
+                cascade_prob = 0.16
+                explanation = f"Renewable generation trip on {failed_id} compensated by spinning reserves and hydro/peaker dispatch."
+
+            elif failed_id in ("sub-south-1", "sub-central-1"):
+                risk_index = 0.78
+                risk_level = RiskLevel.HIGH
+                cascade_prob = 0.45
+                affected_load_mw = 95.0
+                explanation = f"Substation contingency on {failed_id} threatens regional distribution reliability and triggers automatic bus-tie reclosers."
+
             else:
                 risk_index = 0.32
                 risk_level = RiskLevel.MODERATE
@@ -133,6 +187,12 @@ class RiskService:
                 affected_load_mw = 80.0
                 cascade_prob = 0.40
                 explanation = "Severe storm conditions elevate transmission line trip probability across all coastal corridors."
+            elif request.contingency_type == "N-k":
+                risk_index = 0.74
+                risk_level = RiskLevel.HIGH
+                affected_load_mw = 110.0
+                cascade_prob = 0.48
+                explanation = "Multi-branch simultaneous outage screening exposes secondary thermal overloading risks."
             else:
                 risk_index = grid_state.summary.grid_risk_index
                 risk_level = RiskLevel.LOW

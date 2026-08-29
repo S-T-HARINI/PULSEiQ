@@ -29,6 +29,10 @@ from backend.app.schemas.scenario import (
     ScenarioWhatIfRequest,
     ScenarioWhatIfResponse,
 )
+from backend.app.schemas.pipeline import (
+    PipelineRunRequest,
+    PipelineRunResponse,
+)
 from backend.app.schemas.telemetry import (
     GridTelemetryMessage,
 )
@@ -39,6 +43,7 @@ from backend.app.services.forecast_service import forecast_service
 from backend.app.services.risk_service import risk_service
 from backend.app.services.optimization_service import optimization_service
 from backend.app.services.scenario_service import scenario_service
+from backend.app.services.pipeline_service import pipeline_service
 from backend.app.services.connection_manager import ws_connection_manager
 from backend.app.services.telemetry_service import telemetry_service
 from backend.app.core.ai_bridge import ai_bridge
@@ -375,7 +380,73 @@ async def run_what_if_scenario(payload: ScenarioWhatIfRequest) -> ScenarioWhatIf
 
 
 # ==========================================
-# 8. Real-Time WebSocket Streaming Handlers
+# 8. Unified AI Intelligence Pipeline Endpoint
+# ==========================================
+@router.post(
+    "/pipeline/run",
+    response_model=PipelineRunResponse,
+    summary="Run End-to-End AI/ML Intelligence Pipeline",
+    tags=["Pipeline"],
+    description="Coordinates end-to-end unified AI/ML execution across Forecasting, Physical Simulation, Graph Topology Analysis, Multi-Factor Risk Assessment, and Optimal Dispatch Optimization.",
+)
+@router.post(
+    "/pipeline",
+    response_model=PipelineRunResponse,
+    include_in_schema=False,
+)
+async def run_ai_pipeline_endpoint(payload: Optional[PipelineRunRequest] = None) -> PipelineRunResponse:
+    """Executes the complete unified AI/ML pipeline for the electricity grid."""
+    req = payload or PipelineRunRequest()
+    if req.contingency_event and not grid_service.component_exists(req.contingency_event):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Grid component '{req.contingency_event}' not found in grid topology.",
+        )
+    try:
+        return pipeline_service.run_pipeline(req)
+    except Exception as e:
+        logger.error(f"Unified pipeline execution error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unified pipeline execution failed: {str(e)}",
+        )
+
+
+@router.get(
+    "/pipeline/run",
+    response_model=PipelineRunResponse,
+    summary="Get End-to-End AI/ML Pipeline Snapshot",
+    tags=["Pipeline"],
+    description="Executes default unified AI/ML pipeline snapshot.",
+)
+@router.get(
+    "/pipeline",
+    response_model=PipelineRunResponse,
+    include_in_schema=False,
+)
+async def get_ai_pipeline_endpoint(
+    horizon_hours: int = Query(24, ge=1, le=168, description="Forecast horizon in hours"),
+    include_simulation: bool = Query(True, description="Include DC power flow simulation"),
+    include_optimization: bool = Query(True, description="Include dispatch optimization"),
+) -> PipelineRunResponse:
+    """Executes default unified AI/ML pipeline snapshot."""
+    req = PipelineRunRequest(
+        horizon_hours=horizon_hours,
+        include_simulation=include_simulation,
+        include_optimization=include_optimization,
+    )
+    try:
+        return pipeline_service.run_pipeline(req)
+    except Exception as e:
+        logger.error(f"Unified pipeline execution error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unified pipeline execution failed: {str(e)}",
+        )
+
+
+# ==========================================
+# 9. Real-Time WebSocket Streaming Handlers
 # ==========================================
 async def handle_telemetry_websocket(websocket: WebSocket) -> None:
     """Core WebSocket handler streaming continuous telemetry snapshots and handling heartbeats."""

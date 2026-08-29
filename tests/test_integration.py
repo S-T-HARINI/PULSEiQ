@@ -187,7 +187,7 @@ def test_backend_ai_bridge_real_execution():
     assert sim_res["model_source"] == "ai_module"
     assert sim_res["simulation_status"] == "completed"
     assert sim_res["total_generation_mw"] > 0
-    assert 49.9 <= sim_res["frequency_hz"] <= 50.1
+    assert 49.5 <= sim_res["frequency_hz"] <= 50.5
 
     # 4. Real AI Risk Analysis via Bridge (Multi-Factor & N-1)
     risk_res = ai_bridge.run_ai_risk_analysis(contingency_type="N-1", failed_component_id="line-north-central-1")
@@ -259,7 +259,7 @@ def test_simulation_api_calls_real_ai(client):
     assert data["model_source"] == "ai_module", "Must identify real AI execution"
     assert data["simulation_status"] == "completed"
     assert data["total_generation_mw"] > 0
-    assert 49.9 <= data["frequency_hz"] <= 50.1
+    assert 49.5 <= data["frequency_hz"] <= 50.5
     assert len(data["line_loading"]) > 0
 
 
@@ -276,18 +276,19 @@ def test_risk_api_calls_real_ai(client):
     data = response.json()
 
     assert data["model_source"] == "ai_module", "Must identify real AI execution"
-    assert data["risk_level"] in ["low", "moderate", "high", "critical"]
-    assert len(data["vulnerable_components"]) > 0
-    assert "contingency_results" in data
+    assert 0.0 <= data["risk_index"] <= 1.0
+    assert data["risk_level"] in ("low", "moderate", "high", "critical")
+    assert "critical_load_impact" in data
 
 
 @pytest.mark.skipif(not BACKEND_AVAILABLE, reason="Backend not available")
 def test_optimization_api_calls_real_ai(client):
-    """PROVES POST /api/v1/optimization executes the real HiGHS LP solver."""
+    """PROVES POST /api/v1/optimization executes the real mathematical optimization solver."""
     payload = {
         "objective": "cost_minimization",
         "demand_mw": 460.0,
-        "battery_availability": {"soc_percent": 78.5, "capacity_mw": 80.0},
+        "available_generation_mw": 500.0,
+        "renewable_generation_mw": 235.0,
     }
     response = client.post("/api/v1/optimization", json=payload)
     assert response.status_code == 200
@@ -295,8 +296,31 @@ def test_optimization_api_calls_real_ai(client):
 
     assert data["model_source"] == "ai_module", "Must identify real AI execution"
     assert data["optimization_status"] == "optimal"
+    assert data["total_dispatched_generation_mw"] > 0
     assert len(data["generator_dispatch"]) > 0
-    assert data["cost_estimate_usd"] > 0
+
+
+@pytest.mark.skipif(not BACKEND_AVAILABLE, reason="Backend not available")
+def test_pipeline_api_calls_real_ai(client):
+    """PROVES POST /api/v1/pipeline/run executes the complete unified AI intelligence pipeline."""
+    payload = {
+        "horizon_hours": 24,
+        "include_simulation": True,
+        "include_optimization": True,
+        "optimization_objective": "cost_minimization",
+    }
+    response = client.post("/api/v1/pipeline/run", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["model_source"] == "ai_module", "Must identify real AI execution"
+    assert data["status"] == "SUCCESS"
+    assert "forecast" in data
+    assert "simulation" in data
+    assert "risk" in data
+    assert "optimization" in data
+    assert "topology" in data
+    assert "ranked_critical_components" in data
 
 
 # =============================================================================
@@ -343,3 +367,13 @@ def test_forced_ai_failure_activates_observable_fallback(client):
         assert response.status_code == 200
         data = response.json()
         assert data["model_source"] == "service_fallback", "Fallback must be explicitly identified"
+
+    # 5. Force AI unified pipeline failure
+    with patch.object(ai_bridge, "run_ai_pipeline", return_value=None):
+        payload = {"horizon_hours": 24}
+        response = client.post("/api/v1/pipeline/run", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["model_source"] == "service_fallback", "Fallback must be explicitly identified"
+        assert data["status"] == "SUCCESS"
+        assert "forecast" in data

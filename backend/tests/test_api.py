@@ -340,3 +340,93 @@ def test_ai_bridge_resilience():
     assert "simulation" in status_summary
     assert "risk_engine" in status_summary
     assert "optimization" in status_summary
+
+
+# 17. Unified AI Pipeline Endpoints Tests
+def test_pipeline_endpoint_post_success(client):
+    payload = {
+        "horizon_hours": 24,
+        "include_simulation": True,
+        "include_optimization": True,
+        "optimization_objective": "cost_minimization",
+        "load_growth_factor": 1.05,
+    }
+    response = client.post("/api/v1/pipeline/run", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["status"] == "SUCCESS"
+    assert data["model_source"] in ("ai_module", "service_fallback")
+    
+    # 1. Forecasting section
+    assert "forecast" in data
+    assert "load_forecast_mw" in data["forecast"]
+    assert len(data["forecast"]["load_forecast_mw"]) == 24
+    assert "solar_forecast_mw" in data["forecast"]
+    assert "wind_forecast_mw" in data["forecast"]
+    assert "net_load_forecast_mw" in data["forecast"]
+
+    # 2. Simulation section
+    assert "simulation" in data
+    assert data["simulation"]["total_generation_mw"] > 0
+    assert data["simulation"]["total_demand_mw"] > 0
+    assert 48.0 <= data["simulation"]["frequency_hz"] <= 62.0
+
+    # 3. Risk section
+    assert "risk" in data
+    assert 0.0 <= data["risk"]["score"] <= 1.0
+    assert data["risk"]["level"] in ("LOW", "MODERATE", "HIGH", "CRITICAL")
+    assert "factors" in data["risk"]
+
+    # 4. Optimization section
+    assert "optimization" in data
+    assert data["optimization"] is not None
+    assert "total_dispatched_generation_mw" in data["optimization"]
+    assert data["optimization"]["total_dispatched_generation_mw"] > 0
+
+    # 5. Topology section
+    assert "topology" in data
+    assert data["topology"]["node_count"] > 0
+    assert data["topology"]["edge_count"] > 0
+
+    # 6. Ranked components & metadata
+    assert "ranked_critical_components" in data
+    assert "metadata" in data
+    assert "grid_id" in data["metadata"]
+
+
+def test_pipeline_endpoint_get_success(client):
+    response = client.get("/api/v1/pipeline/run?horizon_hours=12&include_simulation=true&include_optimization=true")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "SUCCESS"
+    assert "forecast" in data
+    assert len(data["forecast"]["load_forecast_mw"]) == 12
+    assert "simulation" in data
+    assert "risk" in data
+
+
+def test_pipeline_endpoint_invalid_input(client):
+    # Horizon exceeds max 168 hours
+    response = client.post("/api/v1/pipeline/run", json={"horizon_hours": 999})
+    assert response.status_code == 422
+
+    # Non-existent contingency component
+    response = client.post("/api/v1/pipeline/run", json={"contingency_event": "non-existent-line-999"})
+    assert response.status_code == 404
+
+
+def test_pipeline_fallback_behavior(monkeypatch, client):
+    # Force AI pipeline availability to False
+    monkeypatch.setattr(ai_bridge, "is_pipeline_available", lambda: False)
+    
+    response = client.post("/api/v1/pipeline/run", json={"horizon_hours": 24, "include_optimization": True})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "SUCCESS"
+    assert data["model_source"] == "service_fallback"
+    assert "forecast" in data
+    assert "simulation" in data
+    assert "risk" in data
+    assert "optimization" in data
+    assert "topology" in data
