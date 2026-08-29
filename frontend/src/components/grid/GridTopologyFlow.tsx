@@ -1,0 +1,280 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  Node,
+  Edge,
+  MarkerType,
+} from "@xyflow/react";
+import {
+  SolarNode,
+  WindNode,
+  SubstationNode,
+  BatteryNode,
+  CityLoadNode,
+} from "./CustomNodes";
+import { Activity, Play, RefreshCw, Zap } from "lucide-react";
+
+const initialNodes: Node[] = [
+  {
+    id: "solar-1",
+    type: "solar",
+    position: { x: 50, y: 40 },
+    data: {
+      label: "Desert Sun Array Alpha",
+      type: "solar",
+      output: "850 MW",
+      capacity: "1,000 MW",
+      status: "OPTIMAL",
+    },
+  },
+  {
+    id: "wind-1",
+    type: "wind",
+    position: { x: 50, y: 220 },
+    data: {
+      label: "Highland Wind Farm",
+      type: "wind",
+      output: "620 MW",
+      capacity: "750 MW",
+      status: "ONLINE",
+    },
+  },
+  {
+    id: "battery-1",
+    type: "battery",
+    position: { x: 340, y: 340 },
+    data: {
+      label: "NeoStorage BESS 400MWh",
+      type: "battery",
+      soc: "84.5%",
+      status: "OPTIMAL",
+    },
+  },
+  {
+    id: "substation-alpha",
+    type: "substation",
+    position: { x: 340, y: 120 },
+    data: {
+      label: "Hub Substation 400kV",
+      type: "substation",
+      output: "1,840 MW",
+      voltage: "401.2 kV",
+      status: "SYNC",
+    },
+  },
+  {
+    id: "substation-beta",
+    type: "substation",
+    position: { x: 640, y: 120 },
+    data: {
+      label: "Metro Step-Down 220kV",
+      type: "substation",
+      output: "2,420 MW",
+      voltage: "220.8 kV",
+      status: "SYNC",
+    },
+  },
+  {
+    id: "city-load",
+    type: "cityLoad",
+    position: { x: 940, y: 120 },
+    data: {
+      label: "Metro Central Load Zone",
+      type: "cityLoad",
+      load: "2,420 MW",
+      status: "OPTIMAL",
+    },
+  },
+];
+
+const initialEdges: Edge[] = [
+  {
+    id: "e-solar-sub",
+    source: "solar-1",
+    target: "substation-alpha",
+    animated: true,
+    style: { stroke: "#fbbf24", strokeWidth: 2.5 },
+    label: "850 MW",
+    labelStyle: { fill: "#fbbf24", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#fbbf24" },
+  },
+  {
+    id: "e-wind-sub",
+    source: "wind-1",
+    target: "substation-alpha",
+    animated: true,
+    style: { stroke: "#06b6d4", strokeWidth: 2.5 },
+    label: "620 MW",
+    labelStyle: { fill: "#06b6d4", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#06b6d4" },
+  },
+  {
+    id: "e-bess-sub",
+    source: "battery-1",
+    target: "substation-alpha",
+    animated: true,
+    style: { stroke: "#10b981", strokeWidth: 2 },
+    label: "+180 MW Discharge",
+    labelStyle: { fill: "#10b981", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#10b981" },
+  },
+  {
+    id: "e-sub-sub",
+    source: "substation-alpha",
+    target: "substation-beta",
+    animated: true,
+    style: { stroke: "#3b82f6", strokeWidth: 3 },
+    label: "HV Trunk (1,650 MW)",
+    labelStyle: { fill: "#60a5fa", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#3b82f6" },
+  },
+  {
+    id: "e-sub-city",
+    source: "substation-beta",
+    target: "city-load",
+    animated: true,
+    style: { stroke: "#f43f5e", strokeWidth: 3 },
+    label: "2,420 MW Demand",
+    labelStyle: { fill: "#fb7185", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#f43f5e" },
+  },
+];
+
+export const GridTopologyFlow: React.FC = () => {
+  const [nodes] = useState<Node[]>(initialNodes);
+  const [edges] = useState<Edge[]>(initialEdges);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  const nodeTypes = useMemo(
+    () => ({
+      solar: SolarNode,
+      wind: WindNode,
+      substation: SubstationNode,
+      battery: BatteryNode,
+      cityLoad: CityLoadNode,
+    }),
+    []
+  );
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950/90 shadow-2xl overflow-hidden backdrop-blur-xl">
+      {/* Topology Header & Control Toolbar */}
+      <div className="p-4 bg-slate-900/80 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400">
+            <Zap className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight">
+                LIVE GRID TOPOLOGY TWIN
+              </h3>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                DYNAMIC AC POWER FLOW
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 font-sans mt-0.5">
+              Interactive IEEE multi-bus digital twin representation with active telemetry power vectors.
+            </p>
+          </div>
+        </div>
+
+        {/* Live Controls */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-mono text-slate-300">
+            <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <span>FLOW RATE: 50.02 Hz</span>
+          </div>
+
+          <button
+            onClick={() => setIsSimulating(!isSimulating)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isSimulating
+                ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                : "bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30"
+            }`}
+          >
+            {isSimulating ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                CONTINGENCY RUNNING
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                SIMULATE N-1 TRIP
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* React Flow Canvas Container */}
+      <div className="h-[480px] w-full relative bg-tech-grid">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.5}
+          maxZoom={1.5}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background color="#1e293b" gap={24} size={1.2} />
+          <Controls showInteractive={false} position="bottom-right" />
+          <MiniMap
+            nodeColor={(n) => {
+              if (n.type === "solar") return "#fbbf24";
+              if (n.type === "wind") return "#06b6d4";
+              if (n.type === "battery") return "#10b981";
+              if (n.type === "cityLoad") return "#f43f5e";
+              return "#3b82f6";
+            }}
+            maskColor="rgba(15, 23, 42, 0.8)"
+            style={{
+              backgroundColor: "#090d16",
+              border: "1px solid #334155",
+              borderRadius: "8px",
+            }}
+          />
+        </ReactFlow>
+
+        {/* Legend Overlay at bottom left */}
+        <div className="absolute bottom-4 left-4 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg p-2.5 shadow-xl text-[11px] font-mono text-slate-300 space-y-1 hidden md:block">
+          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">ENERGY CARRIER LEGEND</div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            <span>Solar Generation (PV)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+            <span>Wind Kinetic Generation</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            <span>BESS Storage Storage/Discharge</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+            <span>400kV Transmission Line</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+            <span>Metro Load Sink</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
