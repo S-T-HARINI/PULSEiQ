@@ -4,18 +4,18 @@ PULSEiQ is an AI-powered electricity grid simulation, risk analysis, and optimiz
 
 ---
 
-## Architecture & Data Flow
+## Architecture & Engine Flow
 
 ```
 Forecasting (ai.forecasting)
        │
-       ▼  (Forecasted 24h demand & renewable curves)
+       ▼  (Forecasted 24h demand & renewable generation profiles)
 Simulation (ai.simulation)
        │
-       ▼  (Power flow, line flows, bus voltages, Monte Carlo LOLP/EUE)
+       ▼  (Linear power flow, line flows, bus voltages, Monte Carlo LOLP/EUE)
 Risk Analysis (ai.risk) & Graph Analytics (ai.graph)
-       │
-       ▼  (N-1 / N-k contingency screening, cascading failures, risk index)
+       │  (N-1 / N-k contingency analysis, cascading failures, critical component rankings)
+       ▼
 Optimization (ai.optimization)
           (Optimal economic dispatch, battery scheduling, critical load protection)
 ```
@@ -38,7 +38,7 @@ Optimization (ai.optimization)
 ### 1. [`ai/forecasting/`](file:///c:/Users/hello/PULSEiQ/ai/forecasting)
 - **`DemandForecaster`**: Multi-horizon load forecasting with uncertainty confidence bands ($10\% - 90\%$).
 - **`SolarForecaster`**: Solar PV irradiance and thermal degradation modeling.
-- **`WindForecaster`**: Aerodynamic turbine power curve response to Weibull wind fields.
+- **`WindForecaster`**: Models turbine power curves and Weibull distributed wind profiles.
 - **`GridForecaster`**: Unified multi-asset system forecast orchestrator.
 
 ### 2. [`ai/simulation/`](file:///c:/Users/hello/PULSEiQ/ai/simulation)
@@ -47,14 +47,16 @@ Optimization (ai.optimization)
 
 ### 3. [`ai/risk/`](file:///c:/Users/hello/PULSEiQ/ai/risk)
 - **`run_n_1_analysis`**: Exhaustive single line and generator contingency screening.
-- **`run_n_k_analysis`**: Multi-asset outage combinatorial evaluation.
-- **`simulate_cascading_failure`**: Sequential thermal overload tripping simulator.
-- **`calculate_grid_risk_index`**: Standardized grid risk index ($0.0 \le \text{risk} \le 1.0$) and FastAPI-ready scorecard.
+- **`analyze_n_k` / `run_n_k_analysis`**: Multi-asset outage combinatorial evaluation.
+- **`simulate_cascading_failure`**: Sequential thermal overload tripping simulator separating initial, secondary, and final collapse states.
+- **`rank_critical_components`**: Dynamic component ranking combining centrality, loading, and critical load exposure.
+- **`calculate_grid_risk_index`**: Standardized multi-factor grid risk scorecard (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`).
 
 ### 4. [`ai/graph/`](file:///c:/Users/hello/PULSEiQ/ai/graph)
 - **`grid_to_networkx`**: Graph topology transformation preserving electrical and risk metadata.
+- **`analyze_graph_topology`**: Complete structured topology inspection returning `GraphAnalysisResult`.
 - Dynamic graph topology manipulation (`add_grid_node`, `add_transmission_edge`, `remove_failed_line`, `remove_failed_node`).
-- Centrality, bridge detection, cut vertices, and connected component analysis.
+- Centrality (degree, betweenness, closeness), bridge detection, cut vertices, and connected component analysis.
 
 ### 5. [`ai/optimization/`](file:///c:/Users/hello/PULSEiQ/ai/optimization)
 - **`solve_optimal_dispatch`**: Constrained economic power dispatch solver.

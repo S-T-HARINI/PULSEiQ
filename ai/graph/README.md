@@ -1,14 +1,25 @@
 # PULSEiQ — Graph Module
 
 ## Overview
-The `ai.graph` module leverages **NetworkX** to represent and analyze the electricity grid topology.
+The `ai.graph` module leverages **NetworkX** to perform advanced electrical topology analysis, centrality rankings, islanding detection, and bridge/cut-point screening.
 
-Capabilities:
-1. **Dynamic Topology Mutation**: Add nodes/edges, remove tripped lines/buses, simulate line outages.
-2. **Connectivity & Islanding Detection**: Discover connected components, disconnected loads, and isolated generation islands.
-3. **Graph Centrality & Hub Identification**: Degree centrality, betweenness centrality, and composite node importance rankings.
-4. **Vulnerability Screening**: Find articulation points (cut vertices) and bridges (single lines of failure).
-5. **Pathfinding & Serialization**: Low-impedance shortest path search and node-link JSON export.
+---
+
+## Key Features
+
+1. **Topology Graph Representation**:
+   - **Nodes**: Conventional generators, solar PV, wind turbines, battery storage, substations, normal loads, and critical loads (hospitals, data centers).
+   - **Edges**: Transmission and distribution lines with capacities, active power flows, impedance weights, and voltage ratings.
+
+2. **Graph Analytics & Metrics**:
+   - Degree centrality, betweenness centrality, closeness centrality.
+   - Connected components (electrical islands).
+   - Isolated bus and isolated load detection (loads cut off from generation sources).
+   - Articulation point (cut vertex) and bridge (cut edge) identification.
+   - Low-impedance shortest path analysis.
+
+3. **Structured Analysis Output (`GraphAnalysisResult`)**:
+   - Standardized dataclass serializable directly to JSON for FastAPI endpoints.
 
 ---
 
@@ -18,22 +29,23 @@ Capabilities:
 from ai.models.mock_grid import create_mock_grid
 from ai.graph import (
     grid_to_networkx,
+    analyze_graph_topology,
     find_connected_components,
     identify_important_nodes,
-    find_articulation_points,
-    remove_failed_line,
+    find_shortest_path,
 )
 
 grid = create_mock_grid()
 G = grid_to_networkx(grid)
 
-# Important nodes
-hubs = identify_important_nodes(G, top_n=3)
-for hub in hubs:
-    print(f"Hub: {hub['name']} (Score: {hub['importance_score']})")
+# Full structured topology analysis
+analysis = analyze_graph_topology(G, grid=grid)
+print("Total Nodes:", analysis.node_count)
+print("Connected:", analysis.is_connected)
+print("Articulation Points:", analysis.articulation_points)
+print("Bridges:", analysis.bridges)
 
-# Simulate line loss
-remove_failed_line(G, "line_submain_to_subnorth")
-islands = find_connected_components(G)
-print("Connected Islands:", len(islands))
+# Shortest power transfer path
+path = find_shortest_path(G, "gen_gas_01", "load_hospital_main")
+print("Path to Hospital:", " -> ".join(path))
 ```

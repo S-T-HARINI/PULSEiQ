@@ -3,10 +3,13 @@ PULSEiQ - Graph Module.
 Converts grid topology to NetworkX graphs and provides structural connectivity, centrality, and dynamic graph mutation utilities.
 """
 
+from ai.graph.models import GraphAnalysisResult
 from ai.graph.builder import (
     add_grid_node,
     add_transmission_edge,
+    analyze_graph_topology,
     calculate_betweenness_centrality,
+    calculate_closeness_centrality,
     calculate_degree_centrality,
     calculate_node_degrees,
     export_graph_to_dict,
@@ -24,6 +27,7 @@ from ai.graph.builder import (
 )
 
 __all__ = [
+    "GraphAnalysisResult",
     "grid_to_networkx",
     "add_grid_node",
     "add_transmission_edge",
@@ -38,7 +42,9 @@ __all__ = [
     "calculate_node_degrees",
     "calculate_degree_centrality",
     "calculate_betweenness_centrality",
+    "calculate_closeness_centrality",
     "find_articulation_points",
     "find_bridges",
+    "analyze_graph_topology",
     "export_graph_to_dict",
 ]
