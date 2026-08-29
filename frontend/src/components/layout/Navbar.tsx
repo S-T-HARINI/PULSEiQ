@@ -13,12 +13,15 @@ import {
   Settings,
   Radio,
 } from "lucide-react";
+import { useGridTelemetry } from "@/hooks/useGridTelemetry";
 
 interface NavbarProps {
   activeTab?: string;
   onTabChange?: (tab: string) => void;
   onRunSimulation?: () => void;
   onWhatIfScenario?: () => void;
+  frequencyHz?: number | null;
+  isConnected?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -26,8 +29,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTabChange,
   onRunSimulation,
   onWhatIfScenario,
+  frequencyHz: propFrequencyHz,
+  isConnected: propIsConnected,
 }) => {
   const [activeNav, setActiveNav] = useState(activeTab);
+  
+  // Use internal hook if props are not explicitly provided
+  const internalTelemetry = useGridTelemetry();
+  const isConnected = propIsConnected !== undefined ? propIsConnected : internalTelemetry.isConnected;
+  const frequencyHz = propFrequencyHz !== undefined ? propFrequencyHz : internalTelemetry.frequencyHz;
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: <BarChart3 className="w-4 h-4" /> },
@@ -92,13 +102,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Side: Telemetry, Action Buttons, Alerts, User */}
           <div className="flex items-center gap-3">
-            {/* Grid Online Telemetry Pill */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-[11px] font-mono text-emerald-400">
-              <Radio className="w-3.5 h-3.5 animate-pulse" />
-              <span className="font-bold">GRID ONLINE</span>
-              <span className="text-slate-500">|</span>
-              <span>50.02 Hz</span>
-            </div>
+            {/* Grid Online / Offline Real-time Telemetry Pill */}
+            {isConnected ? (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-[11px] font-mono text-emerald-400">
+                <Radio className="w-3.5 h-3.5 animate-pulse" />
+                <span className="font-bold">GRID ONLINE</span>
+                <span className="text-slate-500">|</span>
+                <span>{frequencyHz !== null && frequencyHz !== undefined ? `${frequencyHz.toFixed(2)} Hz` : "50.00 Hz"}</span>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-950/40 border border-rose-500/30 text-[11px] font-mono text-rose-400">
+                <Radio className="w-3.5 h-3.5 text-rose-500" />
+                <span className="font-bold">GRID OFFLINE</span>
+                <span className="text-slate-500">|</span>
+                <span>RECONNECTING...</span>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="hidden md:flex items-center gap-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { HeroSection } from "@/components/dashboard/HeroSection";
 import { CommandMetrics } from "@/components/dashboard/CommandMetrics";
@@ -8,6 +8,7 @@ import { GridTopologyFlow } from "@/components/grid/GridTopologyFlow";
 import { TelemetryCharts } from "@/components/dashboard/TelemetryCharts";
 import { AiSimulationModules } from "@/components/dashboard/AiSimulationModules";
 import { gridMetricsData, simulationModulesData } from "@/lib/gridData";
+import { useGridTelemetry } from "@/hooks/useGridTelemetry";
 import { Terminal, Sparkles } from "lucide-react";
 
 export default function Home() {
@@ -15,6 +16,32 @@ export default function Home() {
   const [simulationModalOpen, setSimulationModalOpen] = useState(false);
   const [scenarioModalOpen, setScenarioModalOpen] = useState(false);
   const [activeSimulationLog, setActiveSimulationLog] = useState<string | null>(null);
+
+  // Connect to real-time grid telemetry WebSocket
+  const { frequencyHz, isConnected, telemetry } = useGridTelemetry();
+
+  // Dynamic grid metrics reflecting live telemetry
+  const dynamicMetrics = useMemo(() => {
+    return gridMetricsData.map((metric) => {
+      if (metric.id === "grid-frequency" && frequencyHz !== null) {
+        const deltaVal = frequencyHz - 50.0;
+        const sign = deltaVal >= 0 ? "+" : "";
+        return {
+          ...metric,
+          value: frequencyHz.toFixed(2),
+          delta: `Δ ${sign}${deltaVal.toFixed(3)} Hz`,
+          deltaType: Math.abs(deltaVal) < 0.04 ? ("positive" as const) : ("neutral" as const),
+        };
+      }
+      if (metric.id === "current-load" && telemetry?.total_demand) {
+        return {
+          ...metric,
+          value: Math.round(telemetry.total_demand).toLocaleString(),
+        };
+      }
+      return metric;
+    });
+  }, [frequencyHz, telemetry]);
 
   const handleRunSimulation = () => {
     setSimulationModalOpen(true);
@@ -33,6 +60,8 @@ export default function Home() {
         onTabChange={(tab) => setActiveTab(tab)}
         onRunSimulation={handleRunSimulation}
         onWhatIfScenario={handleWhatIfScenario}
+        frequencyHz={frequencyHz}
+        isConnected={isConnected}
       />
 
       {/* Main Content Container with guaranteed top padding so header never overlaps */}
@@ -49,16 +78,20 @@ export default function Home() {
         <section aria-label="Grid Overview Metrics" className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span className={`w-2 h-2 rounded-full ${isConnected ? "bg-amber-400 animate-pulse" : "bg-slate-500"}`}></span>
               <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
                 SCADA TELEMETRY & SYSTEM HEALTH
               </h2>
             </div>
             <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
-              LIVE SAMPLING: 50.02 Hz ± 0.02
+              {isConnected && frequencyHz !== null
+                ? `LIVE SAMPLING: ${frequencyHz.toFixed(2)} Hz ± 0.02`
+                : isConnected
+                ? "LIVE SAMPLING: SYNCHRONIZING..."
+                : "LIVE SAMPLING: OFFLINE (RECONNECTING)"}
             </span>
           </div>
-          <CommandMetrics metrics={gridMetricsData} />
+          <CommandMetrics metrics={dynamicMetrics} />
         </section>
 
         {/* 4. Main Grid Visualization (React Flow) & 5. Telemetry Charts (Recharts) */}

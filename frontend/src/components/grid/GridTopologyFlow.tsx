@@ -18,6 +18,7 @@ import {
   CityLoadNode,
 } from "./CustomNodes";
 import { Activity, Play, RefreshCw, Zap } from "lucide-react";
+import { useGridTelemetry } from "@/hooks/useGridTelemetry";
 
 const initialNodes: Node[] = [
   {
@@ -191,6 +192,7 @@ export const GridTopologyFlow: React.FC = () => {
   const [nodes] = useState<Node[]>(initialNodes);
   const [edges] = useState<Edge[]>(initialEdges);
   const [isSimulating, setIsSimulating] = useState(false);
+  const { frequencyHz, isConnected } = useGridTelemetry();
 
   const nodeTypes = useMemo(
     () => ({
@@ -229,8 +231,8 @@ export const GridTopologyFlow: React.FC = () => {
         {/* Live Controls */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs font-mono text-slate-300">
-            <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span>FLOW RATE: 50.02 Hz</span>
+            <Activity className={`w-3.5 h-3.5 ${isConnected ? "text-emerald-400 animate-pulse" : "text-slate-500"}`} />
+            <span>FLOW RATE: {frequencyHz !== null ? `${frequencyHz.toFixed(2)} Hz` : "50.00 Hz"}</span>
           </div>
 
           <button

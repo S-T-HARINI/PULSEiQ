@@ -1,4 +1,4 @@
-# PULSEiQ — FastAPI Backend Service (Step 5: Real-Time Telemetry & WebSockets)
+ PULSEiQ — FastAPI Backend Service (Step 5: Real-Time Telemetry & WebSockets)
 
 Welcome to the backend service for **PULSEiQ**, an AI-powered electricity grid simulation, risk analysis, and optimization platform.
 
