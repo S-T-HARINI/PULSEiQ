@@ -23,7 +23,9 @@ const initialNodes: Node[] = [
   {
     id: "solar-1",
     type: "solar",
-    position: { x: 50, y: 40 },
+    position: { x: 40, y: 30 },
+    width: 220,
+    height: 115,
     data: {
       label: "Desert Sun Array Alpha",
       type: "solar",
@@ -35,7 +37,9 @@ const initialNodes: Node[] = [
   {
     id: "wind-1",
     type: "wind",
-    position: { x: 50, y: 220 },
+    position: { x: 40, y: 220 },
+    width: 220,
+    height: 115,
     data: {
       label: "Highland Wind Farm",
       type: "wind",
@@ -47,7 +51,9 @@ const initialNodes: Node[] = [
   {
     id: "battery-1",
     type: "battery",
-    position: { x: 340, y: 340 },
+    position: { x: 360, y: 330 },
+    width: 220,
+    height: 115,
     data: {
       label: "NeoStorage BESS 400MWh",
       type: "battery",
@@ -58,7 +64,9 @@ const initialNodes: Node[] = [
   {
     id: "substation-alpha",
     type: "substation",
-    position: { x: 340, y: 120 },
+    position: { x: 360, y: 120 },
+    width: 230,
+    height: 125,
     data: {
       label: "Hub Substation 400kV",
       type: "substation",
@@ -70,7 +78,9 @@ const initialNodes: Node[] = [
   {
     id: "substation-beta",
     type: "substation",
-    position: { x: 640, y: 120 },
+    position: { x: 690, y: 120 },
+    width: 230,
+    height: 125,
     data: {
       label: "Metro Step-Down 220kV",
       type: "substation",
@@ -82,7 +92,9 @@ const initialNodes: Node[] = [
   {
     id: "city-load",
     type: "cityLoad",
-    position: { x: 940, y: 120 },
+    position: { x: 1010, y: 120 },
+    width: 230,
+    height: 125,
     data: {
       label: "Metro Central Load Zone",
       type: "cityLoad",
@@ -97,56 +109,81 @@ const initialEdges: Edge[] = [
     id: "e-solar-sub",
     source: "solar-1",
     target: "substation-alpha",
+    sourceHandle: "solar-out",
+    targetHandle: "sub-left",
+    type: "smoothstep",
     animated: true,
-    style: { stroke: "#fbbf24", strokeWidth: 2.5 },
-    label: "850 MW",
+    className: "animate-flow-amber",
+    style: { stroke: "#f59e0b", strokeWidth: 2.5 },
+    label: "850 MW (Solar PV)",
     labelStyle: { fill: "#fbbf24", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "#fbbf24" },
+    labelBgStyle: { fill: "#090d16", stroke: "#f59e0b50", strokeWidth: 1, rx: 4, ry: 4 },
+    labelBgPadding: [6, 4],
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#f59e0b", width: 16, height: 16 },
   },
   {
     id: "e-wind-sub",
     source: "wind-1",
     target: "substation-alpha",
+    sourceHandle: "wind-out",
+    targetHandle: "sub-left",
+    type: "smoothstep",
     animated: true,
+    className: "animate-flow-cyan",
     style: { stroke: "#06b6d4", strokeWidth: 2.5 },
-    label: "620 MW",
-    labelStyle: { fill: "#06b6d4", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "#06b6d4" },
+    label: "620 MW (Wind Feeder)",
+    labelStyle: { fill: "#38bdf8", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#090d16", stroke: "#06b6d450", strokeWidth: 1, rx: 4, ry: 4 },
+    labelBgPadding: [6, 4],
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#06b6d4", width: 16, height: 16 },
   },
   {
     id: "e-bess-sub",
     source: "battery-1",
     target: "substation-alpha",
+    sourceHandle: "bess-out",
+    targetHandle: "sub-bottom",
+    type: "smoothstep",
     animated: true,
-    style: { stroke: "#10b981", strokeWidth: 2 },
-    label: "+180 MW Discharge",
-    labelStyle: { fill: "#10b981", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "#10b981" },
+    className: "animate-flow-emerald",
+    style: { stroke: "#10b981", strokeWidth: 2.5 },
+    label: "+180 MW (BESS Discharge)",
+    labelStyle: { fill: "#34d399", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#090d16", stroke: "#10b98150", strokeWidth: 1, rx: 4, ry: 4 },
+    labelBgPadding: [6, 4],
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#10b981", width: 16, height: 16 },
   },
   {
     id: "e-sub-sub",
     source: "substation-alpha",
     target: "substation-beta",
+    sourceHandle: "sub-right",
+    targetHandle: "sub-left",
+    type: "smoothstep",
     animated: true,
-    style: { stroke: "#3b82f6", strokeWidth: 3 },
-    label: "HV Trunk (1,650 MW)",
-    labelStyle: { fill: "#60a5fa", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "#3b82f6" },
+    className: "animate-flow-blue",
+    style: { stroke: "#3b82f6", strokeWidth: 3.5 },
+    label: "400kV Bulk Trunk (1,650 MW)",
+    labelStyle: { fill: "#93c5fa", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#090d16", stroke: "#3b82f660", strokeWidth: 1, rx: 4, ry: 4 },
+    labelBgPadding: [8, 4],
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#3b82f6", width: 18, height: 18 },
   },
   {
     id: "e-sub-city",
     source: "substation-beta",
     target: "city-load",
+    sourceHandle: "sub-right",
+    targetHandle: "city-in",
+    type: "smoothstep",
     animated: true,
-    style: { stroke: "#f43f5e", strokeWidth: 3 },
-    label: "2,420 MW Demand",
+    className: "animate-flow-rose",
+    style: { stroke: "#f43f5e", strokeWidth: 3.5 },
+    label: "Metro Demand: 2,420 MW",
     labelStyle: { fill: "#fb7185", fontWeight: 700, fontSize: 10, fontFamily: "monospace" },
-    labelBgStyle: { fill: "#0f172a", fillOpacity: 0.9, rx: 4, ry: 4 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "#f43f5e" },
+    labelBgStyle: { fill: "#090d16", stroke: "#f43f5e60", strokeWidth: 1, rx: 4, ry: 4 },
+    labelBgPadding: [8, 4],
+    markerEnd: { type: MarkerType.ArrowClosed, color: "#f43f5e", width: 18, height: 18 },
   },
 ];
 
@@ -220,58 +257,79 @@ export const GridTopologyFlow: React.FC = () => {
       </div>
 
       {/* React Flow Canvas Container */}
-      <div className="h-[480px] w-full relative bg-tech-grid">
+      <div className="h-[500px] w-full relative bg-tech-grid">
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.5}
-          maxZoom={1.5}
+          fitViewOptions={{ padding: 0.15 }}
+          minZoom={0.4}
+          maxZoom={1.6}
           proOptions={{ hideAttribution: true }}
         >
           <Background color="#1e293b" gap={24} size={1.2} />
-          <Controls showInteractive={false} position="bottom-right" />
+          
+          {/* Controls placed top-right so they don't conflict with MiniMap or Legend */}
+          <Controls position="top-right" showInteractive={false} />
+          
+          {/* Functional, styled MiniMap at bottom-right */}
           <MiniMap
+            position="bottom-right"
             nodeColor={(n) => {
-              if (n.type === "solar") return "#fbbf24";
+              if (n.type === "solar") return "#f59e0b";
               if (n.type === "wind") return "#06b6d4";
               if (n.type === "battery") return "#10b981";
               if (n.type === "cityLoad") return "#f43f5e";
               return "#3b82f6";
             }}
-            maskColor="rgba(15, 23, 42, 0.8)"
+            nodeStrokeColor={(n) => {
+              if (n.type === "solar") return "#fbbf24";
+              if (n.type === "wind") return "#38bdf8";
+              if (n.type === "battery") return "#34d399";
+              if (n.type === "cityLoad") return "#fb7185";
+              return "#60a5fa";
+            }}
+            nodeStrokeWidth={2}
+            nodeBorderRadius={4}
+            maskColor="rgba(7, 9, 14, 0.75)"
+            maskStrokeColor="#f59e0b"
+            maskStrokeWidth={1.5}
+            zoomable
+            pannable
             style={{
+              width: 170,
+              height: 110,
               backgroundColor: "#090d16",
-              border: "1px solid #334155",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
               borderRadius: "8px",
+              margin: 12,
             }}
           />
         </ReactFlow>
 
         {/* Legend Overlay at bottom left */}
-        <div className="absolute bottom-4 left-4 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg p-2.5 shadow-xl text-[11px] font-mono text-slate-300 space-y-1 hidden md:block">
-          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">ENERGY CARRIER LEGEND</div>
+        <div className="absolute bottom-3 left-3 z-10 bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-lg p-2.5 shadow-xl text-[11px] font-mono text-slate-300 space-y-1 hidden md:block">
+          <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">POWER VECTORS</div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
             <span>Solar Generation (PV)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
-            <span>Wind Kinetic Generation</span>
+            <span>Wind Kinetic Feeder</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-            <span>BESS Storage Storage/Discharge</span>
+            <span>BESS Storage (+180 MW)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-            <span>400kV Transmission Line</span>
+            <span>400kV Bulk Transmission</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-            <span>Metro Load Sink</span>
+            <span>Metro Load Sink (2,420 MW)</span>
           </div>
         </div>
       </div>

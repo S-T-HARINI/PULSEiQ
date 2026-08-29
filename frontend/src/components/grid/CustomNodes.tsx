@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Handle, Position } from "@xyflow/react";
 import { Sun, Wind, Zap, BatteryCharging, Building2 } from "lucide-react";
 
@@ -9,23 +10,23 @@ export interface NodeData {
   capacity?: string;
   output?: string;
   voltage?: string;
-  status: "ONLINE" | "OPTIMAL" | "STANDBY" | "WARNING";
+  status: "ONLINE" | "OPTIMAL" | "STANDBY" | "WARNING" | "SYNC";
   details?: string;
   load?: string;
   soc?: string;
 }
 
-export const SolarNode = ({ data }: { data: NodeData }) => {
+export const SolarNode: React.FC<{ data: NodeData }> = ({ data }) => {
   return (
-    <div className="relative group bg-slate-900/90 backdrop-blur-md border border-amber-500/40 hover:border-amber-400 p-3 rounded-lg shadow-lg shadow-amber-500/5 min-w-[200px] transition-all">
+    <div className="relative group bg-slate-900/95 backdrop-blur-md border border-amber-500/50 hover:border-amber-400 p-3 rounded-lg shadow-xl shadow-amber-500/10 w-[220px] transition-all">
       <div className="flex items-center justify-between gap-2 border-b border-amber-500/20 pb-2 mb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
             <Sun className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400">SOLAR ARRAY</div>
-            <div className="text-xs font-bold text-slate-100">{data.label}</div>
+            <div className="text-[9px] font-mono uppercase tracking-wider text-amber-400">SOLAR ARRAY</div>
+            <div className="text-xs font-bold text-slate-100 truncate max-w-[120px]">{data.label}</div>
           </div>
         </div>
         <span className="flex h-2 w-2 relative">
@@ -52,23 +53,24 @@ export const SolarNode = ({ data }: { data: NodeData }) => {
       <Handle
         type="source"
         position={Position.Right}
+        id="solar-out"
         className="!w-3 !h-3 !bg-amber-400 !border-2 !border-slate-950"
       />
     </div>
   );
 };
 
-export const WindNode = ({ data }: { data: NodeData }) => {
+export const WindNode: React.FC<{ data: NodeData }> = ({ data }) => {
   return (
-    <div className="relative group bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 hover:border-cyan-400 p-3 rounded-lg shadow-lg shadow-cyan-500/5 min-w-[200px] transition-all">
+    <div className="relative group bg-slate-900/95 backdrop-blur-md border border-cyan-500/50 hover:border-cyan-400 p-3 rounded-lg shadow-xl shadow-cyan-500/10 w-[220px] transition-all">
       <div className="flex items-center justify-between gap-2 border-b border-cyan-500/20 pb-2 mb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
             <Wind className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-400">WIND FARM</div>
-            <div className="text-xs font-bold text-slate-100">{data.label}</div>
+            <div className="text-[9px] font-mono uppercase tracking-wider text-cyan-400">WIND FARM</div>
+            <div className="text-xs font-bold text-slate-100 truncate max-w-[120px]">{data.label}</div>
           </div>
         </div>
         <span className="flex h-2 w-2 relative">
@@ -95,19 +97,30 @@ export const WindNode = ({ data }: { data: NodeData }) => {
       <Handle
         type="source"
         position={Position.Right}
+        id="wind-out"
         className="!w-3 !h-3 !bg-cyan-400 !border-2 !border-slate-950"
       />
     </div>
   );
 };
 
-export const SubstationNode = ({ data }: { data: NodeData }) => {
+export const SubstationNode: React.FC<{ data: NodeData }> = ({ data }) => {
   return (
-    <div className="relative group bg-slate-900/95 backdrop-blur-md border border-slate-700 hover:border-amber-400/80 p-3.5 rounded-lg shadow-xl min-w-[220px] transition-all">
+    <div className="relative group bg-slate-900/95 backdrop-blur-md border border-slate-700 hover:border-amber-400/80 p-3.5 rounded-lg shadow-2xl w-[230px] transition-all">
+      {/* Left Input Handle from Generators */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-3 !h-3 !bg-slate-400 !border-2 !border-slate-950"
+        id="sub-left"
+        className="!w-3 !h-3 !bg-blue-400 !border-2 !border-slate-950"
+      />
+
+      {/* Bottom Input Handle from BESS Storage */}
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="sub-bottom"
+        className="!w-3 !h-3 !bg-emerald-400 !border-2 !border-slate-950"
       />
       
       <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 mb-2">
@@ -116,8 +129,8 @@ export const SubstationNode = ({ data }: { data: NodeData }) => {
             <Zap className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-blue-400">400kV / 132kV SUBSTATION</div>
-            <div className="text-xs font-bold text-slate-100">{data.label}</div>
+            <div className="text-[9px] font-mono uppercase tracking-wider text-blue-400">400kV / 132kV SUBSTATION</div>
+            <div className="text-xs font-bold text-slate-100 truncate max-w-[125px]">{data.label}</div>
           </div>
         </div>
         <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">
@@ -132,7 +145,7 @@ export const SubstationNode = ({ data }: { data: NodeData }) => {
         </div>
         <div className="flex justify-between text-slate-400">
           <span>BUS VOLTAGE:</span>
-          <span className="text-emerald-400">{data.voltage || "401.2 kV (1.003 pu)"}</span>
+          <span className="text-emerald-400">{data.voltage || "401.2 kV"}</span>
         </div>
         <div className="flex justify-between text-slate-400">
           <span>STABILITY:</span>
@@ -140,35 +153,33 @@ export const SubstationNode = ({ data }: { data: NodeData }) => {
         </div>
       </div>
 
+      {/* Right Output Handle */}
       <Handle
         type="source"
         position={Position.Right}
+        id="sub-right"
         className="!w-3 !h-3 !bg-amber-400 !border-2 !border-slate-950"
       />
     </div>
   );
 };
 
-export const BatteryNode = ({ data }: { data: NodeData }) => {
+export const BatteryNode: React.FC<{ data: NodeData }> = ({ data }) => {
   return (
-    <div className="relative group bg-slate-900/90 backdrop-blur-md border border-emerald-500/40 hover:border-emerald-400 p-3 rounded-lg shadow-lg shadow-emerald-500/5 min-w-[200px] transition-all">
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!w-3 !h-3 !bg-emerald-400 !border-2 !border-slate-950"
-      />
-
+    <div className="relative group bg-slate-900/95 backdrop-blur-md border border-emerald-500/50 hover:border-emerald-400 p-3 rounded-lg shadow-xl shadow-emerald-500/10 w-[220px] transition-all">
       <div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 pb-2 mb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
             <BatteryCharging className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">BESS STORAGE</div>
-            <div className="text-xs font-bold text-slate-100">{data.label}</div>
+            <div className="text-[9px] font-mono uppercase tracking-wider text-emerald-400">BESS STORAGE</div>
+            <div className="text-xs font-bold text-slate-100 truncate max-w-[120px]">{data.label}</div>
           </div>
         </div>
-        <span className="text-[10px] font-mono text-emerald-400 font-bold">DISCHARGING</span>
+        <span className="text-[9px] font-mono text-emerald-400 font-bold px-1 rounded bg-emerald-950/60 border border-emerald-800/40">
+          DISCHARGE
+        </span>
       </div>
 
       <div className="space-y-1 text-[11px] font-mono">
@@ -178,7 +189,7 @@ export const BatteryNode = ({ data }: { data: NodeData }) => {
         </div>
         <div className="flex justify-between text-slate-400">
           <span>STATE OF CHARGE:</span>
-          <span className="text-slate-100">{data.soc || "84.5% (338 MWh)"}</span>
+          <span className="text-slate-100">{data.soc || "84.5%"}</span>
         </div>
         <div className="flex justify-between text-slate-400">
           <span>CYCLE EFFICIENCY:</span>
@@ -186,21 +197,24 @@ export const BatteryNode = ({ data }: { data: NodeData }) => {
         </div>
       </div>
 
+      {/* Top Source Handle to Substation Bottom */}
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Top}
+        id="bess-out"
         className="!w-3 !h-3 !bg-emerald-400 !border-2 !border-slate-950"
       />
     </div>
   );
 };
 
-export const CityLoadNode = ({ data }: { data: NodeData }) => {
+export const CityLoadNode: React.FC<{ data: NodeData }> = ({ data }) => {
   return (
-    <div className="relative group bg-slate-900/95 backdrop-blur-md border border-rose-500/40 hover:border-rose-400 p-3.5 rounded-lg shadow-xl shadow-rose-500/5 min-w-[220px] transition-all">
+    <div className="relative group bg-slate-900/95 backdrop-blur-md border border-rose-500/50 hover:border-rose-400 p-3.5 rounded-lg shadow-2xl shadow-rose-500/10 w-[230px] transition-all">
       <Handle
         type="target"
         position={Position.Left}
+        id="city-in"
         className="!w-3 !h-3 !bg-rose-400 !border-2 !border-slate-950"
       />
 
@@ -210,12 +224,12 @@ export const CityLoadNode = ({ data }: { data: NodeData }) => {
             <Building2 className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-rose-400">METRO LOAD SINK</div>
-            <div className="text-xs font-bold text-slate-100">{data.label}</div>
+            <div className="text-[9px] font-mono uppercase tracking-wider text-rose-400">METRO LOAD SINK</div>
+            <div className="text-xs font-bold text-slate-100 truncate max-w-[125px]">{data.label}</div>
           </div>
         </div>
         <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-950/80 text-rose-400 border border-rose-800/50">
-          HIGH DEMAND
+          DEMAND
         </span>
       </div>
 
@@ -230,7 +244,7 @@ export const CityLoadNode = ({ data }: { data: NodeData }) => {
         </div>
         <div className="flex justify-between text-slate-400">
           <span>RELIABILITY:</span>
-          <span className="text-emerald-400">99.998% (SAIDI: 0.8m)</span>
+          <span className="text-emerald-400">99.998% SAIDI</span>
         </div>
       </div>
     </div>
