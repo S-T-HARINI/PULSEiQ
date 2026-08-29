@@ -16,11 +16,32 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { telemetry24hData } from "@/lib/gridData";
+import { telemetry24hData as defaultTelemetry } from "@/lib/gridData";
+import { TelemetryPoint } from "@/types/grid";
 import { Activity } from "lucide-react";
 
-export const TelemetryCharts: React.FC = () => {
+interface TelemetryChartsProps {
+  telemetryData?: TelemetryPoint[];
+}
+
+export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
+  telemetryData = defaultTelemetry,
+}) => {
   const [activeTab, setActiveTab] = useState<"load-gen" | "frequency" | "generation-mix">("load-gen");
+
+  const chartData = telemetryData && telemetryData.length > 0 ? telemetryData : defaultTelemetry;
+
+  // Compute summary stats dynamically from active telemetry
+  const peakPoint = chartData.reduce(
+    (max, p) => (p.loadMW > max.loadMW ? p : max),
+    chartData[0] || { time: "18:00", loadMW: 4600 }
+  );
+
+  const maxRenewablePercent = chartData.reduce((max, p) => {
+    const total = p.solarMW + p.windMW + p.bessMW + p.thermalMW;
+    const ren = total > 0 ? ((p.solarMW + p.windMW) / total) * 100 : 0;
+    return ren > max ? ren : max;
+  }, 0);
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/90 shadow-2xl p-5 backdrop-blur-xl space-y-4">
@@ -84,7 +105,7 @@ export const TelemetryCharts: React.FC = () => {
       <div className="h-[320px] w-full pt-2">
         {activeTab === "load-gen" && (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={telemetry24hData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorGeneration" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
@@ -142,7 +163,7 @@ export const TelemetryCharts: React.FC = () => {
 
         {activeTab === "frequency" && (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={telemetry24hData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.6} />
               <XAxis dataKey="time" stroke="#64748b" tick={{ fill: "#94a3b8", fontSize: 11, fontFamily: "monospace" }} />
               <YAxis
@@ -180,7 +201,7 @@ export const TelemetryCharts: React.FC = () => {
 
         {activeTab === "generation-mix" && (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={telemetry24hData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.6} />
               <XAxis dataKey="time" stroke="#64748b" tick={{ fill: "#94a3b8", fontSize: 11, fontFamily: "monospace" }} />
               <YAxis stroke="#64748b" tick={{ fill: "#94a3b8", fontSize: 11, fontFamily: "monospace" }} unit=" MW" />
@@ -208,11 +229,11 @@ export const TelemetryCharts: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-800/80 text-xs font-mono">
         <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
           <span className="text-slate-500 text-[10px] block">PEAK DEMAND TIME</span>
-          <span className="text-slate-100 font-bold">18:00 (4,600 MW)</span>
+          <span className="text-slate-100 font-bold">{peakPoint.time} ({peakPoint.loadMW.toLocaleString()} MW)</span>
         </div>
         <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
           <span className="text-slate-500 text-[10px] block">RENEWABLE PENETRATION</span>
-          <span className="text-emerald-400 font-bold">54.8% Peak</span>
+          <span className="text-emerald-400 font-bold">{maxRenewablePercent.toFixed(1)}% Peak</span>
         </div>
         <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
           <span className="text-slate-500 text-[10px] block">AVG FREQ DEVIATION</span>
