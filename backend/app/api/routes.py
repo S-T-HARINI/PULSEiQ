@@ -1,8 +1,8 @@
 import asyncio
 import json
 import logging
-from typing import List
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
 from backend.app.schemas.health import HealthResponse
 from backend.app.schemas.grid import GridResponse
@@ -13,16 +13,19 @@ from backend.app.schemas.simulation import (
 from backend.app.schemas.forecast import (
     ForecastRequest,
     ForecastResponse,
+    ForecastType,
 )
 from backend.app.schemas.risk import (
     RiskAnalysisRequest,
     RiskAnalysisResponse,
 )
 from backend.app.schemas.optimization import (
+    OptimizationObjective,
     OptimizationRunRequest,
     OptimizationRunResponse,
 )
 from backend.app.schemas.scenario import (
+    ScenarioType,
     ScenarioWhatIfRequest,
     ScenarioWhatIfResponse,
 )
@@ -84,6 +87,29 @@ async def get_grid_state() -> GridResponse:
 # ==========================================
 # 3. Time-Series Forecasting Endpoint
 # ==========================================
+@router.get(
+    "/forecast",
+    response_model=ForecastResponse,
+    summary="Get Demand & Renewable Forecast",
+    tags=["Forecast"],
+    description="Retrieves time-series predictions for load demand, solar generation, or wind production using Person 3 AI models with analytical fallbacks.",
+)
+async def get_forecast(
+    forecast_type: ForecastType = Query(ForecastType.LOAD, description="Target forecast type: load, solar, wind"),
+    horizon_hours: int = Query(24, ge=1, le=168, description="Forecast horizon in hours (1-168)"),
+) -> ForecastResponse:
+    """Generates hourly forecasted values and confidence intervals across the specified horizon."""
+    try:
+        req = ForecastRequest(forecast_type=forecast_type, horizon_hours=horizon_hours)
+        return forecast_service.generate_forecast(req)
+    except Exception as e:
+        logger.error(f"Forecast error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Forecasting calculation failed: {str(e)}",
+        )
+
+
 @router.post(
     "/forecast",
     response_model=ForecastResponse,
@@ -106,6 +132,34 @@ async def generate_forecast(payload: ForecastRequest) -> ForecastResponse:
 # ==========================================
 # 4. Grid Simulation Endpoint
 # ==========================================
+@router.get(
+    "/simulation",
+    response_model=SimulationRunResponse,
+    summary="Get Grid Simulation Baseline",
+    tags=["Simulation"],
+    description="Executes a baseline grid state power-flow simulation calculating generation, demand, line loading, voltage/frequency indicators.",
+)
+async def get_simulation(
+    load_growth_factor: Optional[float] = Query(1.0, ge=0.1, le=3.0, description="Load growth scaling multiplier"),
+    contingency_event: Optional[str] = Query(None, description="Optional forced contingency asset ID"),
+) -> SimulationRunResponse:
+    """Runs a baseline grid power-flow simulation."""
+    if contingency_event and not grid_service.component_exists(contingency_event):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Contingency component '{contingency_event}' not found in grid topology.",
+        )
+    try:
+        req = SimulationRunRequest(load_growth_factor=load_growth_factor, contingency_event=contingency_event)
+        return simulation_service.run_simulation(req)
+    except Exception as e:
+        logger.error(f"Simulation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Simulation processing failed: {str(e)}",
+        )
+
+
 @router.post(
     "/simulation",
     response_model=SimulationRunResponse,
@@ -138,6 +192,34 @@ async def run_simulation(payload: SimulationRunRequest) -> SimulationRunResponse
 # ==========================================
 # 5. Risk Analysis Endpoint
 # ==========================================
+@router.get(
+    "/risk",
+    response_model=RiskAnalysisResponse,
+    summary="Get Grid Risk Analysis",
+    tags=["Risk"],
+    description="Performs risk evaluation, identifying vulnerable components, critical load impacts, N-1 screening, and cascading failure indicators.",
+)
+async def get_risk(
+    contingency_type: Optional[str] = Query("N-1", description="Contingency category: N-1, extreme_weather, etc."),
+    failed_component_id: Optional[str] = Query(None, description="Forced component outage identifier"),
+) -> RiskAnalysisResponse:
+    """Evaluates grid contingency and probabilistic risk metrics."""
+    if failed_component_id and not grid_service.component_exists(failed_component_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Grid component '{failed_component_id}' not found in grid topology.",
+        )
+    try:
+        req = RiskAnalysisRequest(contingency_type=contingency_type, failed_component_id=failed_component_id)
+        return risk_service.analyze_risk(req)
+    except Exception as e:
+        logger.error(f"Risk analysis error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Risk analysis computation failed: {str(e)}",
+        )
+
+
 @router.post(
     "/risk",
     response_model=RiskAnalysisResponse,
@@ -170,6 +252,29 @@ async def analyze_risk(payload: RiskAnalysisRequest) -> RiskAnalysisResponse:
 # ==========================================
 # 6. Optimization Endpoint
 # ==========================================
+@router.get(
+    "/optimization",
+    response_model=OptimizationRunResponse,
+    summary="Get Optimal Power Dispatch",
+    tags=["Optimization"],
+    description="Calculates optimal power generation dispatch, battery scheduling, backup generation, and recommended actions.",
+)
+async def get_optimization(
+    objective: OptimizationObjective = Query(OptimizationObjective.COST_MINIMIZATION, description="Target optimization objective"),
+    demand_mw: Optional[float] = Query(None, description="Optional target demand override in MW"),
+) -> OptimizationRunResponse:
+    """Calculates optimal unit commitment and dispatch schedule."""
+    try:
+        req = OptimizationRunRequest(objective=objective, demand_mw=demand_mw)
+        return optimization_service.run_optimization(req)
+    except Exception as e:
+        logger.error(f"Optimization error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Optimization solver execution failed: {str(e)}",
+        )
+
+
 @router.post(
     "/optimization",
     response_model=OptimizationRunResponse,
@@ -197,6 +302,44 @@ async def run_optimization(payload: OptimizationRunRequest) -> OptimizationRunRe
 # ==========================================
 # 7. What-If Scenario Endpoint
 # ==========================================
+@router.get(
+    "/scenario/what-if",
+    response_model=ScenarioWhatIfResponse,
+    summary="Get What-If Scenario Analysis",
+    tags=["Scenarios"],
+    description="Simulates default what-if scenarios (extreme_heatwave, solar_ramp_down, n1_line_trip, wind_storm_cutoff).",
+)
+@router.get(
+    "/scenarios/what-if",
+    response_model=ScenarioWhatIfResponse,
+    include_in_schema=False,
+)
+@router.get(
+    "/scenario",
+    response_model=ScenarioWhatIfResponse,
+    include_in_schema=False,
+)
+async def get_what_if_scenario(
+    scenario_type: ScenarioType = Query(ScenarioType.EXTREME_HEATWAVE, description="Scenario type to simulate"),
+    failed_component_id: Optional[str] = Query(None, description="Forced component outage ID"),
+) -> ScenarioWhatIfResponse:
+    """Evaluates the projected impact of a what-if scenario on grid generation, demand, and risk."""
+    if failed_component_id and not grid_service.component_exists(failed_component_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Grid component '{failed_component_id}' not found in grid topology.",
+        )
+    try:
+        req = ScenarioWhatIfRequest(scenario_type=scenario_type, failed_component_id=failed_component_id)
+        return scenario_service.evaluate_what_if(req)
+    except Exception as e:
+        logger.error(f"Scenario error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Scenario evaluation failed: {str(e)}",
+        )
+
+
 @router.post(
     "/scenario/what-if",
     response_model=ScenarioWhatIfResponse,
