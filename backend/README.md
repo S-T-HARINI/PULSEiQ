@@ -4,7 +4,7 @@ Welcome to the backend service for **PULSEiQ**, an AI-powered electricity grid s
 
 ---
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```
 backend/
@@ -48,7 +48,7 @@ backend/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Prerequisites
 - Python 3.10+ (tested on Python 3.13)
@@ -73,7 +73,7 @@ python -m uvicorn backend.app.main:app --reload --port 8000
 
 ---
 
-## ⚡ Real-Time WebSocket Telemetry (`/ws/grid`)
+##  Real-Time WebSocket Telemetry (`/ws/grid`)
 
 The frontend live dashboard connects directly to:
 ```
@@ -111,7 +111,7 @@ ws://localhost:8000/ws/grid
 
 ---
 
-## 📡 REST API Endpoints
+##  REST API Endpoints
 
 | Method | Endpoint | Description | Response Schema |
 | :--- | :--- | :--- | :--- |
@@ -126,7 +126,7 @@ ws://localhost:8000/ws/grid
 
 ---
 
-## 🧪 Running the Test Suite
+##  Running the Test Suite
 
 Run all automated unit, integration, and WebSocket tests with pytest:
 ```bash
@@ -135,7 +135,7 @@ pytest backend/tests/ -v
 
 ---
 
-## 📖 Interactive Documentation
+##  Interactive Documentation
 
 - **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
