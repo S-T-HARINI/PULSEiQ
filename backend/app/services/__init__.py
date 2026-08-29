@@ -4,6 +4,8 @@ from backend.app.services.forecast_service import forecast_service, ForecastServ
 from backend.app.services.risk_service import risk_service, RiskService
 from backend.app.services.optimization_service import optimization_service, OptimizationService
 from backend.app.services.scenario_service import scenario_service, ScenarioService
+from backend.app.services.connection_manager import ws_connection_manager, ConnectionManager
+from backend.app.services.telemetry_service import telemetry_service, TelemetryService
 
 __all__ = [
     "grid_service",
@@ -18,4 +20,8 @@ __all__ = [
     "OptimizationService",
     "scenario_service",
     "ScenarioService",
+    "ws_connection_manager",
+    "ConnectionManager",
+    "telemetry_service",
+    "TelemetryService",
 ]

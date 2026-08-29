@@ -10,6 +10,11 @@ from backend.app.schemas.grid import (
     GridSummary,
     GridResponse,
 )
+from backend.app.schemas.telemetry import (
+    GridOperationalStatus,
+    GridTelemetryMessage,
+    ClientControlMessage,
+)
 from backend.app.schemas.simulation import (
     SimulationRunRequest,
     SimulationRunResponse,
@@ -25,6 +30,7 @@ from backend.app.schemas.forecast import (
 from backend.app.schemas.risk import (
     RiskLevel,
     AffectedComponent,
+    CriticalLoadImpact,
     RiskAnalysisRequest,
     RiskAnalysisResponse,
 )
@@ -55,6 +61,9 @@ __all__ = [
     "GridEdge",
     "GridSummary",
     "GridResponse",
+    "GridOperationalStatus",
+    "GridTelemetryMessage",
+    "ClientControlMessage",
     "SimulationRunRequest",
     "SimulationRunResponse",
     "SimulationRequest",
@@ -65,6 +74,7 @@ __all__ = [
     "ForecastResponse",
     "RiskLevel",
     "AffectedComponent",
+    "CriticalLoadImpact",
     "RiskAnalysisRequest",
     "RiskAnalysisResponse",
     "OptimizationObjective",

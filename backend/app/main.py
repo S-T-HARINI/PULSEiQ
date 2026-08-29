@@ -1,6 +1,7 @@
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,7 +12,17 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from backend.app.core.config import settings
-from backend.app.api.routes import router as api_router
+from backend.app.api.routes import router as api_router, handle_telemetry_websocket
+from backend.app.services.telemetry_service import telemetry_service
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager handling application startup and shutdown tasks."""
+    telemetry_service.start_background_broadcaster()
+    yield
+    telemetry_service.stop_background_broadcaster()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -20,9 +31,10 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
-# Custom validation exception handler for clean error reporting
+# Custom validation exception handler for clean JSON error reporting
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     formatted_errors = []
@@ -60,6 +72,19 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
+# Root-level WebSocket endpoint (/ws/grid) as requested for frontend live dashboard
+@app.websocket("/ws/grid")
+async def root_websocket_grid_stream(websocket: WebSocket) -> None:
+    """Root-level WebSocket endpoint streaming continuous real-time grid telemetry."""
+    await handle_telemetry_websocket(websocket)
+
+
+@app.websocket("/ws/telemetry")
+async def root_websocket_telemetry_stream(websocket: WebSocket) -> None:
+    """Root-level WebSocket telemetry stream alias."""
+    await handle_telemetry_websocket(websocket)
+
+
 @app.get("/", tags=["Root"])
 async def root():
     """Root endpoint providing service metadata and navigation endpoints."""
@@ -70,6 +95,7 @@ async def root():
         "docs_url": "/docs",
         "health_check": f"{settings.API_V1_PREFIX}/health",
         "grid_state": f"{settings.API_V1_PREFIX}/grid",
+        "websocket_grid": "/ws/grid",
     }
 
 

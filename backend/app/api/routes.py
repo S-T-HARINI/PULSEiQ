@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 from typing import List
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 
@@ -24,6 +26,9 @@ from backend.app.schemas.scenario import (
     ScenarioWhatIfRequest,
     ScenarioWhatIfResponse,
 )
+from backend.app.schemas.telemetry import (
+    GridTelemetryMessage,
+)
 
 from backend.app.services.grid_service import grid_service
 from backend.app.services.simulation_service import simulation_service
@@ -31,39 +36,45 @@ from backend.app.services.forecast_service import forecast_service
 from backend.app.services.risk_service import risk_service
 from backend.app.services.optimization_service import optimization_service
 from backend.app.services.scenario_service import scenario_service
+from backend.app.services.connection_manager import ws_connection_manager
+from backend.app.services.telemetry_service import telemetry_service
+from backend.app.core.ai_bridge import ai_bridge
+from backend.app.core.config import settings
 
+logger = logging.getLogger("pulseiq.api.routes")
 router = APIRouter()
 
 
 # ==========================================
-# 1. Health Endpoint
+# 1. Health & AI Status Endpoint
 # ==========================================
 @router.get(
     "/health",
     response_model=HealthResponse,
-    summary="Health Check",
+    summary="Health & System Status Check",
     tags=["Health"],
-    description="Returns backend service health status, app name, version, and execution timestamp.",
+    description="Returns API status, version, and the operational connection status of AI/ML modules and fallback services.",
 )
 async def get_health() -> HealthResponse:
-    """Operational health check endpoint for frontend and monitoring services."""
+    """Operational health check endpoint confirming API availability and AI/ML bridge status."""
     return HealthResponse(
         status="healthy",
         service="PULSEiQ Backend",
         version="1.0.0",
-        environment="development",
+        ai_modules=ai_bridge.get_status_summary(),
+        environment=settings.ENVIRONMENT,
     )
 
 
 # ==========================================
-# 2. Grid Topology & State Endpoint
+# 2. Grid Topology & Telemetry Endpoint
 # ==========================================
 @router.get(
     "/grid",
     response_model=GridResponse,
-    summary="Get Grid Topology & Telemetry",
+    summary="Get Grid Representation & Telemetry",
     tags=["Grid"],
-    description="Retrieves current grid topology, generators, substations, loads, transmission lines, and summary metrics.",
+    description="Retrieves current grid representation (generators, solar, wind, battery, substations, loads, critical hospital load, transmission lines, and summary metrics) for the frontend Grid Twin.",
 )
 async def get_grid_state() -> GridResponse:
     """Returns the complete digital twin state of the electricity grid."""
@@ -71,99 +82,132 @@ async def get_grid_state() -> GridResponse:
 
 
 # ==========================================
-# 3. Simulation Endpoint
+# 3. Time-Series Forecasting Endpoint
 # ==========================================
 @router.post(
-    "/simulation/run",
-    response_model=SimulationRunResponse,
-    summary="Run Grid Simulation",
-    tags=["Simulation"],
-    description="Executes a grid state simulation calculating power balance, line loadings, frequency, voltages, and risk.",
+    "/forecast",
+    response_model=ForecastResponse,
+    summary="Generate Demand & Renewable Forecast",
+    tags=["Forecast"],
+    description="Generates time-series predictions for load demand, solar generation, or wind production using Person 3 AI models with analytical fallbacks.",
 )
+async def generate_forecast(payload: ForecastRequest) -> ForecastResponse:
+    """Generates hourly forecasted values and confidence intervals across the specified horizon."""
+    try:
+        return forecast_service.generate_forecast(payload)
+    except Exception as e:
+        logger.error(f"Forecast error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Forecasting calculation failed: {str(e)}",
+        )
+
+
+# ==========================================
+# 4. Grid Simulation Endpoint
+# ==========================================
 @router.post(
     "/simulation",
+    response_model=SimulationRunResponse,
+    summary="Execute Grid Simulation",
+    tags=["Simulation"],
+    description="Executes a grid state power-flow simulation calculating generation, demand, line loading, voltage/frequency indicators, and affected components.",
+)
+@router.post(
+    "/simulation/run",
     response_model=SimulationRunResponse,
     include_in_schema=False,
 )
 async def run_simulation(payload: SimulationRunRequest) -> SimulationRunResponse:
-    """Runs a grid power-flow simulation based on input parameters and contingencies."""
+    """Runs an AC/DC grid state simulation via Person 3 simulation engine or physics-based service fallback."""
     if payload.contingency_event and not grid_service.component_exists(payload.contingency_event):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Contingency component '{payload.contingency_event}' not found in grid topology.",
         )
-    return simulation_service.run_simulation(payload)
-
-
-# ==========================================
-# 4. Forecast Endpoint
-# ==========================================
-@router.post(
-    "/forecast",
-    response_model=ForecastResponse,
-    summary="Generate Forecast",
-    tags=["Forecast"],
-    description="Generates hourly time-series predictions for load demand, solar generation, or wind production.",
-)
-async def generate_forecast(payload: ForecastRequest) -> ForecastResponse:
-    """Generates time-series forecast data over the requested horizon."""
-    return forecast_service.generate_forecast(payload)
+    try:
+        return simulation_service.run_simulation(payload)
+    except Exception as e:
+        logger.error(f"Simulation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Simulation processing failed: {str(e)}",
+        )
 
 
 # ==========================================
 # 5. Risk Analysis Endpoint
 # ==========================================
 @router.post(
-    "/risk/analyze",
+    "/risk",
     response_model=RiskAnalysisResponse,
-    summary="Analyze Grid Risk",
+    summary="Analyze Grid Risk & Contingencies",
     tags=["Risk"],
-    description="Analyzes grid operational risks, N-1 contingencies, affected components, and cascading failure probabilities.",
+    description="Performs risk evaluation, identifying vulnerable components, critical load impacts, N-1 screening, and cascading failure indicators.",
 )
 @router.post(
-    "/risk",
+    "/risk/analyze",
     response_model=RiskAnalysisResponse,
     include_in_schema=False,
 )
 async def analyze_risk(payload: RiskAnalysisRequest) -> RiskAnalysisResponse:
-    """Performs risk evaluation for specified contingency conditions."""
+    """Evaluates grid contingency and probabilistic risk metrics."""
     if payload.failed_component_id and not grid_service.component_exists(payload.failed_component_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Grid component '{payload.failed_component_id}' not found in grid topology.",
         )
-    return risk_service.analyze_risk(payload)
+    try:
+        return risk_service.analyze_risk(payload)
+    except Exception as e:
+        logger.error(f"Risk analysis error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Risk analysis computation failed: {str(e)}",
+        )
 
 
 # ==========================================
 # 6. Optimization Endpoint
 # ==========================================
 @router.post(
-    "/optimization/run",
+    "/optimization",
     response_model=OptimizationRunResponse,
-    summary="Run Grid Optimization",
+    summary="Solve Grid Optimization & Dispatch",
     tags=["Optimization"],
-    description="Calculates optimal power generation dispatch, battery scheduling, and operating costs.",
+    description="Calculates optimal power generation dispatch, battery scheduling, backup generation, and recommended actions using Person 3 solvers or merit-order fallback.",
 )
 @router.post(
-    "/optimization",
+    "/optimization/run",
     response_model=OptimizationRunResponse,
     include_in_schema=False,
 )
 async def run_optimization(payload: OptimizationRunRequest) -> OptimizationRunResponse:
-    """Calculates optimal unit commitment and dispatch schedule based on objective."""
-    return optimization_service.run_optimization(payload)
+    """Calculates optimal unit commitment and dispatch schedule based on target objective."""
+    try:
+        return optimization_service.run_optimization(payload)
+    except Exception as e:
+        logger.error(f"Optimization error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Optimization solver execution failed: {str(e)}",
+        )
 
 
 # ==========================================
 # 7. What-If Scenario Endpoint
 # ==========================================
 @router.post(
+    "/scenario/what-if",
+    response_model=ScenarioWhatIfResponse,
+    summary="Evaluate What-If Scenario",
+    tags=["Scenarios"],
+    description="Simulates what-if scenarios (extreme_heatwave, solar_ramp_down, n1_line_trip, wind_storm_cutoff) and returns changed demand/generation, resulting risk, critical-load impact, and recommended responses.",
+)
+@router.post(
     "/scenarios/what-if",
     response_model=ScenarioWhatIfResponse,
-    summary="Run What-If Scenario",
-    tags=["Scenarios"],
-    description="Simulates what-if grid conditions: extreme heatwave, solar ramp-down, N-1 line trip, or wind storm.",
+    include_in_schema=False,
 )
 @router.post(
     "/scenario",
@@ -171,60 +215,45 @@ async def run_optimization(payload: OptimizationRunRequest) -> OptimizationRunRe
     include_in_schema=False,
 )
 async def run_what_if_scenario(payload: ScenarioWhatIfRequest) -> ScenarioWhatIfResponse:
-    """Evaluates the projected impact of a what-if scenario on generation, demand, and risk."""
+    """Evaluates the projected impact of a what-if scenario on grid generation, demand, and risk."""
     if payload.failed_component_id and not grid_service.component_exists(payload.failed_component_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Grid component '{payload.failed_component_id}' not found in grid topology.",
         )
-    return scenario_service.evaluate_what_if(payload)
-
-
-# ==========================================
-# 8. WebSocket Telemetry Streaming
-# ==========================================
-class TelemetryConnectionManager:
-    """Manages active WebSocket client connections for real-time grid telemetry broadcasting."""
-
-    def __init__(self) -> None:
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket) -> None:
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket) -> None:
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast_json(self, message: dict) -> None:
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                pass
-
-
-ws_manager = TelemetryConnectionManager()
-
-
-@router.websocket("/ws/telemetry")
-async def websocket_telemetry_stream(websocket: WebSocket) -> None:
-    """Real-time WebSocket endpoint streaming structured grid telemetry and system status."""
-    await ws_manager.connect(websocket)
-    grid_state = grid_service.get_grid_state()
     try:
-        # Initial telemetry snapshot frame
-        await websocket.send_json({
-            "timestamp": grid_state.timestamp,
-            "frequency": 50.02,
-            "total_generation_mw": grid_state.summary.total_generation_mw,
-            "total_demand_mw": grid_state.summary.total_demand_mw,
-            "risk_index": grid_state.summary.grid_risk_index,
-            "renewable_percentage": grid_state.summary.renewable_percentage,
-            "battery_soc": grid_state.summary.battery_soc,
-            "status": "connected",
-        })
+        return scenario_service.evaluate_what_if(payload)
+    except Exception as e:
+        logger.error(f"Scenario error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Scenario evaluation failed: {str(e)}",
+        )
+
+
+# ==========================================
+# 8. Real-Time WebSocket Streaming Handlers
+# ==========================================
+async def handle_telemetry_websocket(websocket: WebSocket) -> None:
+    """Core WebSocket handler streaming continuous telemetry snapshots and handling heartbeats."""
+    await ws_connection_manager.connect(websocket)
+
+    # 1. Send immediate initial grid snapshot frame
+    initial_snapshot = telemetry_service.generate_current_telemetry()
+    await ws_connection_manager.send_message(websocket, initial_snapshot)
+
+    # 2. Continuous telemetry streaming background task for this client
+    async def stream_telemetry_loop():
+        interval = max(0.5, settings.TELEMETRY_INTERVAL_SECONDS)
+        while True:
+            await asyncio.sleep(interval)
+            update_frame = telemetry_service.generate_current_telemetry()
+            await ws_connection_manager.send_message(websocket, update_frame)
+
+    stream_task = asyncio.create_task(stream_telemetry_loop())
+
+    # 3. Client receiver loop for bidirectional commands / heartbeats
+    try:
         while True:
             text_data = await websocket.receive_text()
             try:
@@ -232,22 +261,33 @@ async def websocket_telemetry_stream(websocket: WebSocket) -> None:
             except Exception:
                 payload = {"raw": text_data}
 
-            # Response acknowledgment frame
             await websocket.send_json({
                 "event": "acknowledgment",
                 "status": "received",
                 "payload": payload,
             })
     except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
+        logger.info("Client disconnected from telemetry stream.")
+    except Exception as e:
+        logger.debug(f"WebSocket session terminated: {e}")
+    finally:
+        stream_task.cancel()
+        ws_connection_manager.disconnect(websocket)
 
 
-# Aliases for backward compatibility with Step 2 clients
 @router.websocket("/ws/grid")
-async def websocket_grid_alias(websocket: WebSocket) -> None:
-    await websocket_telemetry_stream(websocket)
+async def websocket_grid_endpoint(websocket: WebSocket) -> None:
+    """WebSocket endpoint streaming continuous grid telemetry frames."""
+    await handle_telemetry_websocket(websocket)
+
+
+@router.websocket("/ws/telemetry")
+async def websocket_telemetry_endpoint(websocket: WebSocket) -> None:
+    """Telemetry stream alias."""
+    await handle_telemetry_websocket(websocket)
 
 
 @router.websocket("/ws/live")
-async def websocket_live_alias(websocket: WebSocket) -> None:
-    await websocket_telemetry_stream(websocket)
+async def websocket_live_endpoint(websocket: WebSocket) -> None:
+    """Live stream alias."""
+    await handle_telemetry_websocket(websocket)

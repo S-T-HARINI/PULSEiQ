@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
+    # Real-time WebSocket Telemetry Configuration
+    TELEMETRY_INTERVAL_SECONDS: float = 2.0
+
     # CORS Settings
     CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:3000",

@@ -1,4 +1,4 @@
-# PULSEiQ — FastAPI Backend Service (Step 3)
+# PULSEiQ — FastAPI Backend Service (Step 5: Real-Time Telemetry & WebSockets)
 
 Welcome to the backend service for **PULSEiQ**, an AI-powered electricity grid simulation, risk analysis, and optimization platform.
 
@@ -10,36 +10,40 @@ Welcome to the backend service for **PULSEiQ**, an AI-powered electricity grid s
 backend/
 ├── app/
 │   ├── api/
-│   │   ├── __init__.py
-│   │   └── routes.py                 # Unified REST & WebSocket API route definitions
+│   │   ├── __init__.py                 # Exported router index
+│   │   └── routes.py                   # REST & WebSocket API route definitions
 │   ├── core/
 │   │   ├── __init__.py
-│   │   └── config.py                 # Pydantic Settings & environment variables
+│   │   ├── ai_bridge.py                # AI/ML module detection, dynamic binding & fallback bridge
+│   │   └── config.py                   # Pydantic Settings & environment variables (TELEMETRY_INTERVAL_SECONDS)
 │   ├── schemas/
-│   │   ├── __init__.py
-│   │   ├── forecast.py               # Forecast request/response models & ForecastType enum
-│   │   ├── grid.py                   # Grid topology, nodes, edges & summary models
-│   │   ├── health.py                 # Health check response model
-│   │   ├── optimization.py           # Optimization request/response models & dispatch
-│   │   ├── risk.py                   # Risk analysis request/response models & RiskLevel
-│   │   ├── scenario.py               # What-if scenario models & ScenarioType enum
-│   │   └── simulation.py             # Simulation run request/response models
+│   │   ├── __init__.py                 # Pydantic schema export index
+│   │   ├── forecast.py                 # ForecastRequest, ForecastResponse, ForecastDataPoint, ForecastType
+│   │   ├── grid.py                     # GridNode, GridEdge, GridSummary, GridResponse
+│   │   ├── health.py                   # HealthResponse schema with AI subsystem status
+│   │   ├── optimization.py             # OptimizationRunRequest, OptimizationRunResponse, GeneratorDispatch
+│   │   ├── risk.py                     # RiskAnalysisRequest, RiskAnalysisResponse, CriticalLoadImpact, AffectedComponent
+│   │   ├── scenario.py                 # ScenarioWhatIfRequest, ScenarioWhatIfResponse, ScenarioType
+│   │   ├── simulation.py               # SimulationRunRequest, SimulationRunResponse
+│   │   └── telemetry.py                # GridTelemetryMessage, GridOperationalStatus, ClientControlMessage
 │   ├── services/
-│   │   ├── __init__.py
-│   │   ├── forecast_service.py       # Time-series forecasting service (Load, Solar, Wind)
-│   │   ├── grid_service.py           # Grid data layer service (topology & telemetry)
-│   │   ├── optimization_service.py   # Economic dispatch & unit commitment optimization
-│   │   ├── risk_service.py           # Contingency & Monte Carlo risk assessment service
-│   │   ├── scenario_service.py       # What-if operational scenario simulation service
-│   │   └── simulation_service.py     # Power-flow & grid state simulation service
+│   │   ├── __init__.py                 # Services export index
+│   │   ├── connection_manager.py       # Client WebSocket registry, connection, and broadcasting manager
+│   │   ├── forecast_service.py         # Time-series forecasting service with AI module & fallback
+│   │   ├── grid_service.py             # Digital Twin grid topology & telemetry service
+│   │   ├── optimization_service.py     # Economic dispatch & unit commitment optimization service
+│   │   ├── risk_service.py             # Contingency & Monte Carlo risk assessment service
+│   │   ├── scenario_service.py         # What-if scenario simulation & impact evaluation service
+│   │   ├── simulation_service.py       # Power-flow & grid state simulation service
+│   │   └── telemetry_service.py        # Real-time telemetry generator and async broadcast loop
 │   ├── __init__.py
-│   └── main.py                       # FastAPI application entry point & CORS configuration
+│   └── main.py                         # FastAPI application entry point, root WebSocket endpoint & lifespan manager
 ├── tests/
 │   ├── __init__.py
-│   └── test_api.py                   # Automated 20-case pytest integration test suite
-├── .env.example                      # Sample environment variables
-├── requirements.txt                  # Python dependencies
-└── README.md                         # Documentation
+│   └── test_api.py                     # Automated 23-case pytest integration, contract & WebSocket test suite
+├── .env.example                        # Environment variables template
+├── requirements.txt                    # Dependencies (FastAPI, Uvicorn, Pydantic, SQLAlchemy, asyncpg, websockets, pytest, httpx)
+└── README.md                           # Documentation
 ```
 
 ---
@@ -69,24 +73,62 @@ python -m uvicorn backend.app.main:app --reload --port 8000
 
 ---
 
-## 📡 API Endpoints (Step 3)
+## ⚡ Real-Time WebSocket Telemetry (`/ws/grid`)
+
+The frontend live dashboard connects directly to:
+```
+ws://localhost:8000/ws/grid
+```
+
+### Connection & Lifecycle:
+1. **Connect**: Accepts connection and registers client in `ConnectionManager`.
+2. **Initial Snapshot**: Immediately emits the initial structured grid snapshot frame.
+3. **Continuous Streaming**: Emits periodic telemetry updates every `TELEMETRY_INTERVAL_SECONDS` (default: `2.0s`).
+4. **Clean Disconnect**: Handles `WebSocketDisconnect` cleanly, removing the client and releasing resources.
+
+### Telemetry Message Schema (`GridTelemetryMessage`):
+```json
+{
+  "message_type": "grid_telemetry",
+  "timestamp": "2026-08-29T11:27:10.000Z",
+  "grid_status": "NORMAL",
+  "total_generation": 475.94,
+  "total_demand": 462.04,
+  "renewable_generation_percent": 49.47,
+  "battery_soc": 78.50,
+  "grid_risk_index": 0.14,
+  "frequency_hz": 50.021,
+  "line_utilization_avg": 56.4,
+  "affected_components": [],
+  "details": {
+    "solar_generation_mw": 140.0,
+    "wind_generation_mw": 95.0,
+    "net_imbalance_mw": 13.9,
+    "active_connections": 1
+  }
+}
+```
+
+---
+
+## 📡 REST API Endpoints
 
 | Method | Endpoint | Description | Response Schema |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/health` | Operational health check | [`HealthResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/health.py) |
-| `GET` | `/api/v1/grid` | Digital Twin grid topology (nodes, edges, summary metrics) | [`GridResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/grid.py) |
-| `POST` | `/api/v1/simulation/run` | Execute power-flow & state simulation | [`SimulationRunResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/simulation.py) |
-| `POST` | `/api/v1/forecast` | Time-series forecasting for Load, Solar, and Wind | [`ForecastResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/forecast.py) |
-| `POST` | `/api/v1/risk/analyze` | Contingency (N-1) and probabilistic risk analysis | [`RiskAnalysisResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/risk.py) |
-| `POST` | `/api/v1/optimization/run` | Optimal power dispatch, battery scheduling & cost estimation | [`OptimizationRunResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/optimization.py) |
-| `POST` | `/api/v1/scenarios/what-if` | What-if scenarios (Heatwave, Solar Ramp-Down, Wind Storm, N-1) | [`ScenarioWhatIfResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/scenario.py) |
-| `WS` | `/api/v1/ws/telemetry` | Real-time WebSocket streaming for grid telemetry & events | Telemetry JSON Frames |
+| `GET` | `/api/v1/health` | Service health and connected AI module status | [`HealthResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/health.py) |
+| `GET` | `/api/v1/grid` | Digital Twin grid topology (nodes, transmission lines, summary metrics) | [`GridResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/grid.py) |
+| `POST` | `/api/v1/forecast` | Time-series forecasting for Load, Solar, and Wind with P10/P90 confidence bands | [`ForecastResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/forecast.py) |
+| `POST` | `/api/v1/simulation` | Execute power-flow and state simulation with per-line thermal loading | [`SimulationRunResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/simulation.py) |
+| `POST` | `/api/v1/risk` | Contingency (N-1), critical hospital threat assessment, and cascading failure indicators | [`RiskAnalysisResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/risk.py) |
+| `POST` | `/api/v1/optimization` | Optimal power dispatch, battery scheduling, backup generation, and recommended actions | [`OptimizationRunResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/optimization.py) |
+| `POST` | `/api/v1/scenario/what-if` | What-if scenarios (Heatwave, Solar Ramp-Down, Wind Storm Cut-Off, N-1 Line Trip) | [`ScenarioWhatIfResponse`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/scenario.py) |
+| `WS` | `/ws/grid` | Real-time WebSocket streaming for grid telemetry & events | [`GridTelemetryMessage`](file:///c:/Users/chandini/PULSEiQ/backend/app/schemas/telemetry.py) |
 
 ---
 
 ## 🧪 Running the Test Suite
 
-Run all automated unit and integration tests with pytest:
+Run all automated unit, integration, and WebSocket tests with pytest:
 ```bash
 pytest backend/tests/ -v
 ```

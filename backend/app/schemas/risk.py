@@ -19,6 +19,12 @@ class AffectedComponent(BaseModel):
     utilization_or_loading: Optional[float] = Field(None, description="Loading or utilization percentage")
 
 
+class CriticalLoadImpact(BaseModel):
+    critical_load_at_risk: bool = Field(..., description="Whether hospital or tier-1 critical loads are threatened")
+    critical_load_at_risk_mw: float = Field(default=0.0, description="Amount of critical tier-1 load under threat in MW")
+    affected_critical_facilities: List[str] = Field(default_factory=list, description="Names of threatened critical facilities")
+
+
 class RiskAnalysisRequest(BaseModel):
     contingency_type: Optional[str] = Field(
         default="N-1",
@@ -38,17 +44,42 @@ class RiskAnalysisRequest(BaseModel):
         description="Monte Carlo iteration count",
         json_schema_extra={"example": 1000},
     )
-    grid_state_override: Optional[Dict[str, Any]] = Field(default=None, description="Optional custom grid state")
+    grid_state: Optional[Dict[str, Any]] = Field(default=None, description="Current or simulated grid state")
+    simulation_results: Optional[Dict[str, Any]] = Field(default=None, description="Output from prior simulation run")
 
 
 class RiskAnalysisResponse(BaseModel):
     risk_index: float = Field(..., description="Composite risk index from 0.0 (safe) to 1.0 (critical)", json_schema_extra={"example": 0.35})
     risk_level: RiskLevel = Field(..., description="Categorical risk classification: low, moderate, high, critical")
-    affected_components: List[AffectedComponent] = Field(..., description="List of components at risk or degraded")
-    affected_load_mw: float = Field(..., description="Total consumer load facing supply degradation in MW")
-    critical_load_at_risk: bool = Field(..., description="Whether hospital or critical infrastructure load is threatened")
-    critical_load_at_risk_mw: float = Field(default=0.0, description="Amount of critical tier-1 load under threat in MW")
-    cascading_failure_indicators: Dict[str, Any] = Field(..., description="Metrics regarding potential cascading failure propagation")
+    vulnerable_components: List[AffectedComponent] = Field(
+        default_factory=list,
+        description="List of vulnerable grid assets identified by graph and risk models",
+    )
+    affected_components: List[AffectedComponent] = Field(
+        default_factory=list,
+        description="Alias list of affected components",
+    )
+    critical_load_impact: CriticalLoadImpact = Field(
+        ...,
+        description="Structured assessment of threats to critical infrastructure",
+    )
+    contingency_results: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Detailed contingency screening outcomes",
+    )
+    n1_analysis: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Deterministic N-1 line trip and generator outage screening metrics",
+    )
+    cascading_failure_indicators: Dict[str, Any] = Field(
+        ...,
+        description="Metrics regarding potential cascading failure propagation from NetworkX graph models",
+    )
+    model_source: str = Field(
+        default="ai_module",
+        description="Risk engine source: ai_module or service_fallback",
+        json_schema_extra={"example": "ai_module"},
+    )
     explanation: str = Field(..., description="Human-readable engineering explanation of risk drivers")
     summary: Dict[str, Any] = Field(..., description="Summary metrics including LOLP and EENS estimations")
     analyzed_at: str = Field(
