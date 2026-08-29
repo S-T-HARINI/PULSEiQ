@@ -187,7 +187,7 @@ def test_backend_ai_bridge_real_execution():
     assert sim_res["model_source"] == "ai_module"
     assert sim_res["simulation_status"] == "completed"
     assert sim_res["total_generation_mw"] > 0
-    assert 58.0 <= sim_res["frequency_hz"] <= 62.0
+    assert 49.9 <= sim_res["frequency_hz"] <= 50.1
 
     # 4. Real AI Risk Analysis via Bridge (Multi-Factor & N-1)
     risk_res = ai_bridge.run_ai_risk_analysis(contingency_type="N-1", failed_component_id="line-north-central-1")
@@ -259,7 +259,7 @@ def test_simulation_api_calls_real_ai(client):
     assert data["model_source"] == "ai_module", "Must identify real AI execution"
     assert data["simulation_status"] == "completed"
     assert data["total_generation_mw"] > 0
-    assert 58.0 <= data["frequency_hz"] <= 62.0
+    assert 49.9 <= data["frequency_hz"] <= 50.1
     assert len(data["line_loading"]) > 0
 
 
