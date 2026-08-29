@@ -244,7 +244,7 @@ class AIModuleBridge:
                     failure_probability=risk_val * 0.05,
                     risk_score=risk_val * 100.0 if risk_val <= 1.0 else risk_val,
                 ),
-                location={"lat": float(getattr(n, "latitude", 37.77)), "lon": float(getattr(n, "longitude", -122.41))} if hasattr(n, "latitude") else None,
+                location={"lat": float(getattr(n, "latitude", None) or 37.77), "lon": float(getattr(n, "longitude", None) or -122.41)} if getattr(n, "latitude", None) is not None else None,
                 metadata=dict(metadata),
             )
 
@@ -507,7 +507,7 @@ class AIModuleBridge:
             else:
                 sim_grid = grid
 
-            sim_result = solve_power_flow(sim_grid, nominal_frequency_hz=50.0)
+            sim_result = solve_power_flow(sim_grid, nominal_frequency_hz=60.0)
 
             line_loading = {lid: round(lr.utilization_pct, 2) for lid, lr in sim_result.line_results.items()}
             avg_util = round(sum(line_loading.values()) / max(1, len(line_loading)), 2)

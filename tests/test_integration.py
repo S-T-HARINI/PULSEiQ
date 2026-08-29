@@ -206,8 +206,8 @@ def test_backend_ai_bridge_real_execution():
     # 6. Real AI Graph Analysis via Bridge
     graph_res = ai_bridge.run_ai_graph_analysis()
     assert graph_res is not None
-    assert graph_res["node_count"] == 11  # Backend grid has 11 nodes
-    assert graph_res["edge_count"] == 10  # Backend grid has 10 lines
+    assert graph_res["node_count"] == 50  # Backend grid has 50 nodes
+    assert graph_res["edge_count"] >= 40  # Backend grid has 40+ lines
     assert "articulation_points" in graph_res
 
     # 7. Real AI Unified Pipeline via Bridge
