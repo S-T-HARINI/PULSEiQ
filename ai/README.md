@@ -35,30 +35,30 @@ Optimization (ai.optimization)
 
 ## Submodule Overview
 
-### 1. [`ai/forecasting/`](file:///c:/Users/hello/PULSEiQ/ai/forecasting)
+### 1. [`ai/forecasting/`](./forecasting/)
 - **`DemandForecaster`**: Multi-horizon load forecasting with uncertainty confidence bands ($10\% - 90\%$).
 - **`SolarForecaster`**: Solar PV irradiance and thermal degradation modeling.
 - **`WindForecaster`**: Models turbine power curves and Weibull distributed wind profiles.
 - **`GridForecaster`**: Unified multi-asset system forecast orchestrator.
 
-### 2. [`ai/simulation/`](file:///c:/Users/hello/PULSEiQ/ai/simulation)
+### 2. [`ai/simulation/`](./simulation/)
 - **`solve_power_flow`**: Linear DC power flow engine calculating branch active flows, line utilization, bus voltage profiles ($V_{pu}$), and frequency deviation ($\Delta f$).
 - **`run_monte_carlo_simulation`**: Probabilistic simulator assessing Loss of Load Probability (LOLP) and Expected Unserved Energy (EUE MWh).
 
-### 3. [`ai/risk/`](file:///c:/Users/hello/PULSEiQ/ai/risk)
+### 3. [`ai/risk/`](./risk/)
 - **`run_n_1_analysis`**: Exhaustive single line and generator contingency screening.
 - **`analyze_n_k` / `run_n_k_analysis`**: Multi-asset outage combinatorial evaluation.
 - **`simulate_cascading_failure`**: Sequential thermal overload tripping simulator separating initial, secondary, and final collapse states.
 - **`rank_critical_components`**: Dynamic component ranking combining centrality, loading, and critical load exposure.
 - **`calculate_grid_risk_index`**: Standardized multi-factor grid risk scorecard (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`).
 
-### 4. [`ai/graph/`](file:///c:/Users/hello/PULSEiQ/ai/graph)
+### 4. [`ai/graph/`](./graph/)
 - **`grid_to_networkx`**: Graph topology transformation preserving electrical and risk metadata.
 - **`analyze_graph_topology`**: Complete structured topology inspection returning `GraphAnalysisResult`.
-- Dynamic graph topology manipulation (`add_grid_node`, `add_transmission_edge`, `remove_failed_line`, `remove_failed_node`).
+- **`DynamicGraph`**: Topology mutation (`add_grid_node`, `add_transmission_edge`, `remove_failed_line`, `remove_failed_node`).
 - Centrality (degree, betweenness, closeness), bridge detection, cut vertices, and connected component analysis.
 
-### 5. [`ai/optimization/`](file:///c:/Users/hello/PULSEiQ/ai/optimization)
+### 5. [`ai/optimization/`](./optimization/)
 - **`solve_optimal_dispatch`**: Constrained economic power dispatch solver.
 - Renewable priority dispatch with curtailment minimization.
 - BESS battery charge/discharge scheduling bounded by State of Charge.
