@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import math
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -31,31 +32,35 @@ class TelemetryService:
     def generate_current_telemetry(self) -> GridTelemetryMessage:
         """Generates a structured, physics-bounded real-time grid telemetry snapshot."""
         self._tick += 1
+        now_ts = time.time()
         grid_state = grid_service.get_grid_state()
         summary = grid_state.summary
 
         # Realistic subtle time-series fluctuations (±1.5% oscillation)
-        variation_factor = 1.0 + (0.015 * math.sin(self._tick * 0.3))
-        wind_gust = 0.02 * math.cos(self._tick * 0.5)
+        variation_factor = 1.0 + (0.015 * math.sin(now_ts * 0.35 + self._tick * 0.1))
+        wind_gust = 0.02 * math.cos(now_ts * 0.25 + self._tick * 0.15)
 
         base_gen = summary.total_generation_mw
         base_dem = summary.total_demand_mw
 
-        total_gen = round(base_gen * (1.0 + (0.01 * math.sin(self._tick * 0.2))), 2)
+        total_gen = round(base_gen * (1.0 + (0.012 * math.sin(now_ts * 0.2 + self._tick * 0.1))), 2)
         total_dem = round(base_dem * variation_factor, 2)
 
         # Solar and wind telemetry
         solar_node = grid_service.get_node_by_id("gen-solar-1")
         wind_node = grid_service.get_node_by_id("gen-wind-1")
-        solar_mw = (solar_node.current_output_mw if solar_node else 140.0) * (1.0 + 0.01 * math.sin(self._tick * 0.1))
+        solar_mw = (solar_node.current_output_mw if solar_node else 140.0) * (1.0 + 0.01 * math.sin(now_ts * 0.15))
         wind_mw = (wind_node.current_output_mw if wind_node else 95.0) * (1.0 + wind_gust)
         renewable_total = solar_mw + wind_mw
 
         renewable_pct = round((renewable_total / total_gen) * 100, 2) if total_gen > 0 else 0.0
 
-        # Frequency response to momentary generation-demand delta
+        # Frequency response to momentary generation-demand delta + governor damping
         delta_p = total_gen - total_dem
-        frequency = round(50.00 + (delta_p * 0.0012) + (0.005 * math.sin(self._tick * 0.8)), 3)
+        freq_swing = (0.025 * math.sin(now_ts * 0.75 + self._tick * 0.4)) + (0.012 * math.cos(now_ts * 1.35))
+        raw_freq = 50.00 + (delta_p * 0.0006) + freq_swing
+        # Bound strictly within standard grid tolerance [49.95, 50.05]
+        frequency = round(max(49.95, min(50.05, raw_freq)), 3)
 
         # Battery state of charge (subtle discharge trend)
         battery_soc = max(10.0, min(100.0, round(summary.battery_soc - (0.01 * (self._tick % 50)), 2)))

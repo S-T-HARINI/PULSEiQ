@@ -6,6 +6,7 @@ from backend.app.services.optimization_service import optimization_service, Opti
 from backend.app.services.scenario_service import scenario_service, ScenarioService
 from backend.app.services.connection_manager import ws_connection_manager, ConnectionManager
 from backend.app.services.telemetry_service import telemetry_service, TelemetryService
+from backend.app.services.pipeline_service import pipeline_service, PipelineService
 
 __all__ = [
     "grid_service",
@@ -24,4 +25,6 @@ __all__ = [
     "ConnectionManager",
     "telemetry_service",
     "TelemetryService",
+    "pipeline_service",
+    "PipelineService",
 ]

@@ -1,0 +1,60 @@
+import { MetricCardData, GridSystemStatus } from "@/types/dashboard";
+
+export const initialGridStatus: GridSystemStatus = {
+  engineStatus: "Active",
+  lastSyncTime: "Just now (Live)",
+  frequencyHz: 50.02,
+  activeAlertsCount: 0,
+  totalSubstations: 148,
+  activeSubstations: 142,
+  totalCapacityMW: 4850,
+  currentLoadMW: 3780,
+  stabilityIndexPercent: 98.6,
+};
+
+export const initialMetricCards: MetricCardData[] = [
+  {
+    id: "active-substations",
+    title: "Active Substations",
+    value: "142 / 148",
+    unit: "Online",
+    change: "+95.9% operational",
+    changeType: "positive",
+    subtitle: "6 scheduled maintenance",
+    status: "normal",
+    iconName: "substation",
+  },
+  {
+    id: "total-grid-capacity",
+    title: "Total Grid Capacity",
+    value: "4,850",
+    unit: "MW",
+    change: "78% load factor",
+    changeType: "neutral",
+    subtitle: "Current: 3,780 MW",
+    status: "optimal",
+    iconName: "bolt",
+  },
+  {
+    id: "load-factor",
+    title: "Load Factor",
+    value: "0.84",
+    unit: "avg",
+    change: "+2.1% vs baseline",
+    changeType: "positive",
+    subtitle: "Target: 0.80 - 0.88",
+    status: "optimal",
+    iconName: "chart",
+  },
+  {
+    id: "grid-stability-index",
+    title: "Grid Stability Index",
+    value: "98.6%",
+    unit: "score",
+    change: "50.02 Hz nominal",
+    changeType: "positive",
+    subtitle: "Within safe tolerance (±0.05 Hz)",
+    status: "optimal",
+    iconName: "shield",
+  },
+];
