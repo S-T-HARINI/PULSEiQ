@@ -38,10 +38,21 @@ export const CommandMetrics: React.FC<CommandMetricsProps> = ({ metrics }) => {
     }
   };
 
+  const getAccentGlow = (id: string, status: string) => {
+    if (id === "active-alerts" && status === "warning") return "from-rose-500/80 to-amber-500/80";
+    if (id === "grid-frequency") return "from-cyan-500/80 to-blue-500/80";
+    if (id === "stability-index") return "from-indigo-500/80 to-purple-500/80";
+    if (id === "total-capacity") return "from-amber-500/80 to-yellow-500/80";
+    if (id === "current-load") return "from-cyan-500/80 to-emerald-500/80";
+    if (status === "optimal") return "from-emerald-500/80 to-teal-500/80";
+    return "from-slate-600 to-slate-700";
+  };
+
   const getBorderColor = (id: string, status: string) => {
-    if (id === "active-alerts" && status === "warning") return "hover:border-amber-500/50";
+    if (id === "active-alerts" && status === "warning") return "hover:border-rose-500/50";
+    if (status === "warning") return "hover:border-amber-500/50";
     if (status === "optimal") return "hover:border-emerald-500/50";
-    return "hover:border-slate-600";
+    return "hover:border-cyan-500/50";
   };
 
   return (
@@ -49,17 +60,20 @@ export const CommandMetrics: React.FC<CommandMetricsProps> = ({ metrics }) => {
       {metrics.map((metric) => (
         <div
           key={metric.id}
-          className={`relative group bg-slate-950/80 border border-slate-800/90 rounded-xl p-3.5 flex flex-col justify-between shadow-xl backdrop-blur-md transition-all duration-200 ${getBorderColor(
+          className={`relative group bg-[#090d16]/90 border border-slate-800/80 rounded-xl p-3.5 flex flex-col justify-between shadow-xl backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.5)] overflow-hidden ${getBorderColor(
             metric.id,
             metric.status
           )}`}
         >
+          {/* Glowing Top Accent Line */}
+          <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${getAccentGlow(metric.id, metric.status)} opacity-75 group-hover:opacity-100 transition-opacity`} />
+
           {/* Top Label & Icon */}
-          <div className="flex items-center justify-between gap-1 mb-2">
+          <div className="flex items-center justify-between gap-1 mb-2 pt-0.5">
             <span className="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase truncate">
               {metric.label}
             </span>
-            <div className="p-1 rounded bg-slate-900 border border-slate-800/80 shrink-0">
+            <div className="p-1 rounded-lg bg-slate-900/90 border border-slate-800 shrink-0 shadow-inner group-hover:border-slate-700 transition-colors">
               {getIcon(metric.id)}
             </div>
           </div>
@@ -77,10 +91,10 @@ export const CommandMetrics: React.FC<CommandMetricsProps> = ({ metrics }) => {
           </div>
 
           {/* Delta & Technical Detail */}
-          <div className="pt-2 mt-1 border-t border-slate-900/80 flex items-center justify-between text-[10px] font-mono">
+          <div className="pt-2 mt-1.5 border-t border-slate-800/60 flex items-center justify-between text-[10px] font-mono">
             {metric.delta && (
               <span
-                className={`font-semibold ${
+                className={`font-semibold flex items-center gap-1 ${
                   metric.deltaType === "positive"
                     ? "text-emerald-400"
                     : metric.deltaType === "negative"
@@ -91,7 +105,7 @@ export const CommandMetrics: React.FC<CommandMetricsProps> = ({ metrics }) => {
                 {metric.delta}
               </span>
             )}
-            <span className="text-slate-400 truncate ml-1 text-right max-w-[90px]" title={metric.technicalDetail}>
+            <span className="text-slate-400 truncate ml-1 text-right max-w-[95px]" title={metric.technicalDetail}>
               {metric.technicalDetail}
             </span>
           </div>

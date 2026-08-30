@@ -273,3 +273,31 @@ export interface GridTelemetryMessage {
   affected_components: string[];
   details: Record<string, unknown>;
 }
+
+export interface PipelineRunRequest {
+  horizon_hours?: number;
+  include_simulation?: boolean;
+  include_monte_carlo?: boolean;
+  monte_carlo_trials?: number;
+  include_contingency_screening?: boolean;
+  include_cascading_analysis?: boolean;
+  include_optimization?: boolean;
+  optimization_objective?: "cost_minimization" | "emission_reduction" | "reliability_maximization";
+  contingency_event?: string;
+  load_growth_factor?: number;
+  telemetry?: Record<string, unknown>;
+  grid_state?: Record<string, unknown>;
+}
+
+export interface PipelineRunResponse {
+  status: string;
+  model_source: string;
+  forecast: Record<string, unknown>;
+  simulation: Record<string, unknown>;
+  risk: Record<string, unknown>;
+  optimization?: Record<string, unknown>;
+  topology: Record<string, unknown>;
+  ranked_critical_components: Array<Record<string, unknown>>;
+  metadata: Record<string, unknown>;
+}
+

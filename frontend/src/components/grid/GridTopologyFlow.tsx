@@ -587,6 +587,8 @@ export const GridTopologyFlow: React.FC<GridTopologyFlowProps> = ({
       substation: SubstationNode,
       battery: BatteryNode,
       cityLoad: CityLoadNode,
+      load: CityLoadNode,
+      critical_load: CityLoadNode,
     }),
     []
   );

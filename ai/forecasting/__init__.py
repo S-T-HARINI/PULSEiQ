@@ -21,6 +21,12 @@ from ai.forecasting.forecaster import (
     SolarForecaster,
     WindForecaster,
 )
+from ai.forecasting.evaluation import (
+    ForecastingEvaluationResult,
+    ModelEvaluationMetrics,
+    calculate_metrics,
+    evaluate_chronological_demand_models,
+)
 
 __all__ = [
     "ForecastTarget",
@@ -35,4 +41,9 @@ __all__ = [
     "SolarForecaster",
     "WindForecaster",
     "GridForecaster",
+    "ModelEvaluationMetrics",
+    "ForecastingEvaluationResult",
+    "calculate_metrics",
+    "evaluate_chronological_demand_models",
 ]
+

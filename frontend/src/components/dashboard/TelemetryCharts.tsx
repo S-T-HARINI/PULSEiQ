@@ -44,11 +44,11 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
   }, 0);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/90 shadow-2xl p-5 backdrop-blur-xl space-y-4">
+    <div className="rounded-2xl border border-slate-800/90 bg-[#090d16]/95 shadow-[0_20px_50px_rgba(0,0,0,0.6)] p-5 sm:p-6 backdrop-blur-2xl space-y-4">
       {/* Header & Mode Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
             <Activity className="w-5 h-5" />
           </div>
           <div>
@@ -56,7 +56,7 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
               <h3 className="text-base font-bold text-slate-100 font-mono tracking-tight">
                 REAL-TIME TELEMETRY & SCADA ANALYTICS
               </h3>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 shadow-xs">
                 LIVE STREAM
               </span>
             </div>
@@ -67,33 +67,33 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
         </div>
 
         {/* Tab Controls */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-lg self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800 rounded-xl self-start sm:self-auto shadow-inner">
           <button
             onClick={() => setActiveTab("load-gen")}
-            className={`px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all duration-150 cursor-pointer ${
               activeTab === "load-gen"
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.2)] font-bold"
+                : "text-slate-400 hover:text-slate-200 border border-transparent"
             }`}
           >
             LOAD VS GEN
           </button>
           <button
             onClick={() => setActiveTab("frequency")}
-            className={`px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all duration-150 cursor-pointer ${
               activeTab === "frequency"
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.2)] font-bold"
+                : "text-slate-400 hover:text-slate-200 border border-transparent"
             }`}
           >
             FREQUENCY (Hz)
           </button>
           <button
             onClick={() => setActiveTab("generation-mix")}
-            className={`px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-all duration-150 cursor-pointer ${
               activeTab === "generation-mix"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.2)] font-bold"
+                : "text-slate-400 hover:text-slate-200 border border-transparent"
             }`}
           >
             RENEWABLE MIX
@@ -226,22 +226,22 @@ export const TelemetryCharts: React.FC<TelemetryChartsProps> = ({
       </div>
 
       {/* Telemetry Summary Footer */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-800/80 text-xs font-mono">
-        <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
-          <span className="text-slate-500 text-[10px] block">PEAK DEMAND TIME</span>
-          <span className="text-slate-100 font-bold">{peakPoint.time} ({peakPoint.loadMW.toLocaleString()} MW)</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-800/80 text-xs font-mono">
+        <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 transition-colors shadow-inner">
+          <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider block mb-1">PEAK DEMAND TIME</span>
+          <span className="text-slate-100 font-bold text-sm sm:text-base">{peakPoint.time} <span className="text-xs text-amber-400 font-normal">({peakPoint.loadMW.toLocaleString()} MW)</span></span>
         </div>
-        <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
-          <span className="text-slate-500 text-[10px] block">RENEWABLE PENETRATION</span>
-          <span className="text-emerald-400 font-bold">{maxRenewablePercent.toFixed(1)}% Peak</span>
+        <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-emerald-500/30 transition-colors shadow-inner">
+          <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider block mb-1">RENEWABLE PENETRATION</span>
+          <span className="text-emerald-400 font-bold text-sm sm:text-base">{maxRenewablePercent.toFixed(1)}% <span className="text-xs text-slate-400 font-normal">Peak Mix</span></span>
         </div>
-        <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
-          <span className="text-slate-500 text-[10px] block">AVG FREQ DEVIATION</span>
-          <span className="text-cyan-400 font-bold">±0.018 Hz</span>
+        <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-cyan-500/30 transition-colors shadow-inner">
+          <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider block mb-1">AVG FREQ DEVIATION</span>
+          <span className="text-cyan-400 font-bold text-sm sm:text-base">±0.018 Hz <span className="text-xs text-slate-400 font-normal">Sync</span></span>
         </div>
-        <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800">
-          <span className="text-slate-500 text-[10px] block">INERTIA CONSTANT (H)</span>
-          <span className="text-amber-400 font-bold">4.82 s (Secure)</span>
+        <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-amber-500/30 transition-colors shadow-inner">
+          <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider block mb-1">INERTIA CONSTANT (H)</span>
+          <span className="text-amber-400 font-bold text-sm sm:text-base">4.82 s <span className="text-xs text-emerald-400 font-normal">(Secure)</span></span>
         </div>
       </div>
     </div>

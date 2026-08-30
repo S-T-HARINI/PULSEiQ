@@ -73,6 +73,13 @@ from ai.pipeline import (
     SimulationSection,
     PipelineValidationError,
 )
+from ai.anomaly import (
+    AnomalyStatus,
+    AnomalyPoint,
+    AnomalyDetectionResult,
+    DemandAnomalyDetector,
+    extract_anomaly_features,
+)
 
 __version__ = "0.4.0"
 
@@ -95,6 +102,12 @@ __all__ = [
     "GridForecaster",
     "ForecastResult",
     "GridForecastSummary",
+    # Anomaly Detection
+    "AnomalyStatus",
+    "AnomalyPoint",
+    "AnomalyDetectionResult",
+    "DemandAnomalyDetector",
+    "extract_anomaly_features",
     # Simulation
     "SimulationResult",
     "MonteCarloSummary",
@@ -140,3 +153,4 @@ __all__ = [
     "SimulationSection",
     "PipelineValidationError",
 ]
+
