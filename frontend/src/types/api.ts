@@ -59,10 +59,66 @@ export interface GridSummaryApi {
 }
 
 export interface GridResponse {
+  grid_id?: string;
+  name?: string;
+  is_reference?: boolean;
+  is_active?: boolean;
   nodes: GridNodeApi[];
   edges: GridEdgeApi[];
   summary: GridSummaryApi;
   timestamp?: string;
+}
+
+export interface CustomGridCreate {
+  grid_id?: string;
+  name: string;
+  description?: string;
+  nodes?: GridNodeApi[];
+  edges?: GridEdgeApi[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface CustomGridUpdate {
+  name?: string;
+  description?: string;
+  nodes?: GridNodeApi[];
+  edges?: GridEdgeApi[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface CustomGridSummary {
+  grid_id: string;
+  name: string;
+  description: string;
+  is_reference: boolean;
+  is_active: boolean;
+  node_count: number;
+  edge_count: number;
+  total_generation_mw: number;
+  total_demand_mw: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GridDetailResponse {
+  grid_id: string;
+  name: string;
+  description: string;
+  is_reference: boolean;
+  is_active: boolean;
+  nodes: GridNodeApi[];
+  edges: GridEdgeApi[];
+  summary: GridSummaryApi;
+  validation_errors?: string[];
+  timestamp?: string;
+}
+
+export interface GridActivationResponse {
+  status: string;
+  active_grid_id: string;
+  active_grid_name: string;
+  is_reference: boolean;
+  message: string;
 }
 
 export interface HealthResponse {

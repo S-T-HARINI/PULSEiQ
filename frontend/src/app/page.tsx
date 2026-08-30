@@ -293,6 +293,8 @@ export default function Home() {
             frequencyHz={frequencyHz}
             isSimulating={simulating}
             onSimulate={handleRunSimulation}
+            activeGridId={gridState?.grid_id || "reference_demo_grid"}
+            onGridActivated={fetchDashboardData}
           />
         )}
 

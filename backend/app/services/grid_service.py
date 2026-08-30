@@ -1,15 +1,32 @@
+import uuid
 from datetime import datetime, timezone
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+from ai.models.grid import (
+    ComponentStatus as AIComponentStatus,
+    CriticalityLevel as AICriticalityLevel,
+    ElectricityGrid,
+    GridNode as AIGridNode,
+    NodeType as AINodeType,
+    OperationalData as AIOperationalData,
+    RiskMetrics as AIRiskMetrics,
+    TransmissionLine as AITransmissionLine,
+)
 from backend.app.schemas.grid import (
-    NodeType,
-    NodeStatus,
-    NodeCriticality,
+    CustomGridCreate,
+    CustomGridSummary,
+    CustomGridUpdate,
     EdgeStatus,
-    GridNodePosition,
-    GridNode,
+    GridActivationResponse,
+    GridDetailResponse,
     GridEdge,
-    GridSummary,
+    GridNode,
+    GridNodePosition,
     GridResponse,
+    GridSummary,
+    NodeCriticality,
+    NodeStatus,
+    NodeType,
 )
 
 
@@ -17,7 +34,9 @@ class GridService:
     """Service providing realistic electricity grid topology, asset states, and telemetry.
     Features an expansive 50-node enterprise digital twin network with 80+ interconnected
     multi-path transmission branches, meshed 400kV rings, BESS buffers, and dual-fed critical loads.
+    Maintains an in-memory registry for the Reference Grid and user-created Custom Grids.
     """
+
 
     def __init__(self) -> None:
         self._nodes: List[GridNode] = [
@@ -795,9 +814,62 @@ class GridService:
             GridEdge(id="e-da-rail", source="sub-dist-airport", target="load-transit-rail", capacity_mw=550.0, power_flow_mw=390.0, utilization_percent=70.91, status=EdgeStatus.NORMAL, risk_score=0.11, resistance_ohms=0.016, reactance_ohms=0.08),
             GridEdge(id="e-dh-rail", source="sub-dist-harbor", target="load-transit-rail", capacity_mw=500.0, power_flow_mw=0.0, utilization_percent=0.0, status=EdgeStatus.NORMAL, risk_score=0.11, resistance_ohms=0.018, reactance_ohms=0.09),
         ]
+        self._reference_grid_id: str = "reference_demo_grid"
+        self._active_grid_id: str = "reference_demo_grid"
+        self._reference_name: str = "PULSEiQ Regional Demonstration Grid"
+        self._reference_description: str = "A regional 400kV/220kV/132kV bulk transmission digital twin network featuring mixed generation, renewable sources, storage, and critical loads."
+        self._custom_grids: Dict[str, ElectricityGrid] = {}
+        self._custom_grid_metadata: Dict[str, Dict[str, Any]] = {}
 
-    def get_grid_state(self) -> GridResponse:
-        """Calculates and returns the complete current grid state with summary metrics."""
+    def get_active_grid_id(self) -> str:
+        """Returns the ID of the currently active grid."""
+        return self._active_grid_id
+
+    def get_reference_grid(self) -> ElectricityGrid:
+        """Constructs an ElectricityGrid representation of the Reference Grid."""
+        from backend.app.core.ai_bridge import ai_bridge
+        ref_state = self._get_reference_grid_state()
+        eg = ai_bridge.convert_to_ai_grid(ref_state)
+        eg.grid_id = self._reference_grid_id
+        eg.name = self._reference_name
+        eg.description = self._reference_description
+        return eg
+
+    def get_active_grid(self) -> ElectricityGrid:
+        """Returns the currently active ElectricityGrid instance."""
+        if self._active_grid_id == self._reference_grid_id:
+            return self.get_reference_grid()
+        if self._active_grid_id in self._custom_grids:
+            return self._custom_grids[self._active_grid_id]
+        return self.get_reference_grid()
+
+    def set_active_grid(self, grid_id: str) -> GridActivationResponse:
+        """Selects and activates a specific grid (reference or custom)."""
+        if grid_id == self._reference_grid_id or grid_id == "pulseiq-digital-twin":
+            self._active_grid_id = self._reference_grid_id
+            return GridActivationResponse(
+                status="activated",
+                active_grid_id=self._reference_grid_id,
+                active_grid_name=self._reference_name,
+                is_reference=True,
+                message=f"Reference grid '{self._reference_name}' is now active.",
+            )
+
+        if grid_id not in self._custom_grids:
+            raise KeyError(f"Grid with ID '{grid_id}' not found in registry.")
+
+        self._active_grid_id = grid_id
+        cg = self._custom_grids[grid_id]
+        return GridActivationResponse(
+            status="activated",
+            active_grid_id=cg.grid_id,
+            active_grid_name=cg.name,
+            is_reference=False,
+            message=f"Custom grid '{cg.name}' ({cg.grid_id}) is now active.",
+        )
+
+    def _get_reference_grid_state(self) -> GridResponse:
+        """Calculates and returns the reference demo grid state."""
         total_generation = 0.0
         renewable_generation = 0.0
         total_demand = 0.0
@@ -844,35 +916,467 @@ class GridService:
         )
 
         return GridResponse(
+            grid_id=self._reference_grid_id,
+            name=self._reference_name,
+            is_reference=True,
+            is_active=(self._active_grid_id == self._reference_grid_id),
             nodes=self._nodes,
             edges=self._edges,
             summary=summary,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
+    def _convert_custom_grid_to_grid_response(self, cg: ElectricityGrid) -> GridResponse:
+        """Converts an ElectricityGrid instance to standard GridResponse format."""
+        detail = self._electricity_grid_to_pydantic(
+            cg,
+            is_active=(self._active_grid_id == cg.grid_id),
+            is_reference=False,
+        )
+        return GridResponse(
+            grid_id=cg.grid_id,
+            name=cg.name,
+            is_reference=False,
+            is_active=(self._active_grid_id == cg.grid_id),
+            nodes=detail.nodes,
+            edges=detail.edges,
+            summary=detail.summary,
+            timestamp=detail.timestamp,
+        )
+
+    def get_grid_state(self, grid_id: Optional[str] = None) -> GridResponse:
+        """
+        Calculates and returns grid state and summary metrics for the active
+        or specified grid ID.
+        """
+        target_id = grid_id or self._active_grid_id
+
+        if target_id == self._reference_grid_id or target_id == "pulseiq-digital-twin":
+            return self._get_reference_grid_state()
+
+        if target_id in self._custom_grids:
+            return self._convert_custom_grid_to_grid_response(self._custom_grids[target_id])
+
+        return self._get_reference_grid_state()
+
+    def create_custom_grid(self, grid_data: CustomGridCreate) -> GridDetailResponse:
+        """
+        Registers a new custom electricity grid in the in-memory registry.
+        Performs full topological validation using ElectricityGrid.validate_grid().
+        """
+        gid = grid_data.grid_id or f"custom_grid_{uuid.uuid4().hex[:8]}"
+
+        if gid == self._reference_grid_id:
+            raise ValueError(f"Grid ID '{self._reference_grid_id}' is reserved for the Reference Demo Grid.")
+
+        if gid in self._custom_grids:
+            raise ValueError(f"Custom grid with ID '{gid}' already exists.")
+
+        eg = self._pydantic_to_electricity_grid(grid_data, grid_id=gid)
+
+        validation_errors = eg.validate_grid()
+        if validation_errors:
+            raise ValueError(f"Topological validation failed: {'; '.join(validation_errors)}")
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        self._custom_grids[gid] = eg
+        self._custom_grid_metadata[gid] = {
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+
+        return self._electricity_grid_to_pydantic(
+            eg,
+            is_active=(self._active_grid_id == gid),
+            is_reference=False,
+        )
+
+    def list_grids(self) -> List[CustomGridSummary]:
+        """Lists summaries of all available reference and custom grids."""
+        ref_state = self._get_reference_grid_state()
+        summaries: List[CustomGridSummary] = [
+            CustomGridSummary(
+                grid_id=self._reference_grid_id,
+                name=self._reference_name,
+                description=self._reference_description,
+                is_reference=True,
+                is_active=(self._active_grid_id == self._reference_grid_id),
+                node_count=len(self._nodes),
+                edge_count=len(self._edges),
+                total_generation_mw=ref_state.summary.total_generation_mw,
+                total_demand_mw=ref_state.summary.total_demand_mw,
+                created_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+            )
+        ]
+
+        for gid, cg in self._custom_grids.items():
+            meta = self._custom_grid_metadata.get(gid, {})
+            summaries.append(
+                CustomGridSummary(
+                    grid_id=cg.grid_id,
+                    name=cg.name,
+                    description=cg.description,
+                    is_reference=False,
+                    is_active=(self._active_grid_id == cg.grid_id),
+                    node_count=len(cg.nodes),
+                    edge_count=len(cg.lines),
+                    total_generation_mw=round(cg.total_generation_mw, 2),
+                    total_demand_mw=round(cg.total_demand_mw, 2),
+                    created_at=meta.get("created_at"),
+                    updated_at=meta.get("updated_at"),
+                )
+            )
+
+        return summaries
+
+    def get_grid_detail(self, grid_id: str) -> Optional[GridDetailResponse]:
+        """Retrieves full topological and operational details for a grid by ID."""
+        if grid_id == self._reference_grid_id or grid_id == "pulseiq-digital-twin":
+            ref_eg = self.get_reference_grid()
+            return self._electricity_grid_to_pydantic(
+                ref_eg,
+                is_active=(self._active_grid_id == self._reference_grid_id),
+                is_reference=True,
+            )
+
+        if grid_id in self._custom_grids:
+            cg = self._custom_grids[grid_id]
+            return self._electricity_grid_to_pydantic(
+                cg,
+                is_active=(self._active_grid_id == grid_id),
+                is_reference=False,
+            )
+
+        return None
+
+    def update_custom_grid(self, grid_id: str, update_data: CustomGridUpdate) -> GridDetailResponse:
+        """Updates an existing custom grid topology and metadata."""
+        if grid_id == self._reference_grid_id or grid_id == "pulseiq-digital-twin":
+            raise ValueError("Reference demonstration grid is immutable and cannot be updated.")
+
+        if grid_id not in self._custom_grids:
+            raise KeyError(f"Custom grid with ID '{grid_id}' not found.")
+
+        existing_grid = self._custom_grids[grid_id]
+
+        new_name = update_data.name if update_data.name is not None else existing_grid.name
+        new_desc = update_data.description if update_data.description is not None else existing_grid.description
+        new_meta = dict(existing_grid.metadata)
+        if update_data.metadata is not None:
+            new_meta.update(update_data.metadata)
+
+        if update_data.nodes is not None or update_data.edges is not None:
+            # Build new node/line mapping
+            mock_create = CustomGridCreate(
+                grid_id=grid_id,
+                name=new_name,
+                description=new_desc,
+                nodes=update_data.nodes if update_data.nodes is not None else [
+                    n for n in self._electricity_grid_to_pydantic(existing_grid).nodes
+                ],
+                edges=update_data.edges if update_data.edges is not None else [
+                    e for e in self._electricity_grid_to_pydantic(existing_grid).edges
+                ],
+                metadata=new_meta,
+            )
+            new_eg = self._pydantic_to_electricity_grid(mock_create, grid_id=grid_id)
+        else:
+            new_eg = existing_grid
+            new_eg.name = new_name
+            new_eg.description = new_desc
+            new_eg.metadata = new_meta
+
+        validation_errors = new_eg.validate_grid()
+        if validation_errors:
+            raise ValueError(f"Topological validation failed: {'; '.join(validation_errors)}")
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        self._custom_grids[grid_id] = new_eg
+        if grid_id in self._custom_grid_metadata:
+            self._custom_grid_metadata[grid_id]["updated_at"] = now_iso
+        else:
+            self._custom_grid_metadata[grid_id] = {"created_at": now_iso, "updated_at": now_iso}
+
+        return self._electricity_grid_to_pydantic(
+            new_eg,
+            is_active=(self._active_grid_id == grid_id),
+            is_reference=False,
+        )
+
+    def delete_custom_grid(self, grid_id: str) -> bool:
+        """Deletes a custom grid from the in-memory registry."""
+        if grid_id == self._reference_grid_id or grid_id == "pulseiq-digital-twin":
+            raise ValueError("Reference demonstration grid cannot be deleted.")
+
+        if grid_id not in self._custom_grids:
+            return False
+
+        if self._active_grid_id == grid_id:
+            self._active_grid_id = self._reference_grid_id
+
+        del self._custom_grids[grid_id]
+        if grid_id in self._custom_grid_metadata:
+            del self._custom_grid_metadata[grid_id]
+
+        return True
+
+    def _pydantic_to_electricity_grid(
+        self,
+        grid_data: Union[CustomGridCreate, CustomGridUpdate],
+        grid_id: str,
+    ) -> ElectricityGrid:
+        """Converts CustomGridCreate payload into an ai.models.grid.ElectricityGrid instance."""
+        ai_nodes: Dict[str, AIGridNode] = {}
+        ai_lines: Dict[str, AITransmissionLine] = {}
+
+        type_map = {
+            NodeType.CONVENTIONAL_GENERATOR: AINodeType.GENERATOR,
+            NodeType.SOLAR_PLANT: AINodeType.SOLAR,
+            NodeType.WIND_PLANT: AINodeType.WIND,
+            NodeType.BATTERY: AINodeType.BATTERY,
+            NodeType.SUBSTATION: AINodeType.SUBSTATION,
+            NodeType.LOAD: AINodeType.LOAD_NORMAL,
+            NodeType.CRITICAL_LOAD: AINodeType.LOAD_CRITICAL,
+        }
+
+        status_map = {
+            NodeStatus.ONLINE: AIComponentStatus.ONLINE,
+            NodeStatus.OFFLINE: AIComponentStatus.OFFLINE,
+            NodeStatus.DEGRADED: AIComponentStatus.DEGRADED,
+            NodeStatus.CONGESTED: AIComponentStatus.ONLINE,
+        }
+
+        crit_map = {
+            NodeCriticality.LOW: AICriticalityLevel.LOW,
+            NodeCriticality.MEDIUM: AICriticalityLevel.MEDIUM,
+            NodeCriticality.HIGH: AICriticalityLevel.HIGH,
+            NodeCriticality.CRITICAL: AICriticalityLevel.CRITICAL,
+        }
+
+        for n in grid_data.nodes or []:
+            ai_type = type_map.get(n.type, AINodeType.LOAD_NORMAL)
+            ai_status = status_map.get(n.status, AIComponentStatus.ONLINE)
+            ai_crit = crit_map.get(n.criticality, AICriticalityLevel.MEDIUM)
+
+            gen_mw = 0.0
+            dem_mw = 0.0
+            ren_mw = 0.0
+
+            if ai_type in (AINodeType.GENERATOR, AINodeType.SOLAR, AINodeType.WIND):
+                gen_mw = n.current_output_mw
+                if ai_type in (AINodeType.SOLAR, AINodeType.WIND):
+                    ren_mw = n.current_output_mw
+            elif ai_type == AINodeType.BATTERY:
+                gen_mw = max(0.0, n.current_output_mw)
+            elif ai_type in (AINodeType.LOAD_NORMAL, AINodeType.LOAD_CRITICAL):
+                dem_mw = n.current_output_mw
+
+            meta = dict(n.metadata or {})
+            if n.position:
+                meta["position"] = {"x": n.position.x, "y": n.position.y}
+
+            ai_nodes[n.id] = AIGridNode(
+                id=n.id,
+                name=n.name,
+                node_type=ai_type,
+                status=ai_status,
+                operational=AIOperationalData(
+                    generation_mw=gen_mw,
+                    demand_mw=dem_mw,
+                    renewable_generation_mw=ren_mw,
+                    max_capacity_mw=n.capacity_mw,
+                    min_capacity_mw=0.0,
+                    voltage_kv=float(meta.get("voltage_kv", 115.0)),
+                    voltage_pu=1.0,
+                    frequency_hz=60.0,
+                    battery_soc_pct=float(meta.get("state_of_charge_percent", 75.0)) if ai_type == AINodeType.BATTERY else 0.0,
+                    battery_capacity_mwh=float(meta.get("capacity_mwh", n.capacity_mw * 2.0)) if ai_type == AINodeType.BATTERY else 0.0,
+                    battery_max_power_mw=n.capacity_mw if ai_type == AINodeType.BATTERY else 0.0,
+                ),
+                risk=AIRiskMetrics(
+                    criticality=ai_crit,
+                    failure_probability=min(1.0, max(0.0, n.risk_score * 0.05)),
+                    risk_score=n.risk_score * 100.0 if n.risk_score <= 1.0 else n.risk_score,
+                ),
+                location={"lat": n.latitude, "lon": n.longitude} if n.latitude is not None and n.longitude is not None else None,
+                metadata=meta,
+            )
+
+        for e in grid_data.edges or []:
+            e_status = AIComponentStatus.TRIPPED if e.status == EdgeStatus.TRIPPED else AIComponentStatus.ONLINE
+            ai_lines[e.id] = AITransmissionLine(
+                id=e.id,
+                name=e.id,
+                source_node_id=e.source,
+                target_node_id=e.target,
+                capacity_mw=e.capacity_mw,
+                current_flow_mw=e.power_flow_mw,
+                resistance_ohm=e.resistance_ohms if e.resistance_ohms is not None else 0.02,
+                reactance_ohm=e.reactance_ohms if e.reactance_ohms is not None else 0.08,
+                status=e_status,
+                risk=AIRiskMetrics(
+                    criticality=AICriticalityLevel.HIGH if e.capacity_mw >= 400.0 else AICriticalityLevel.MEDIUM,
+                    failure_probability=min(1.0, max(0.0, e.risk_score * 0.05)),
+                    risk_score=e.risk_score * 100.0 if e.risk_score <= 1.0 else e.risk_score,
+                ),
+                metadata=dict(e.metadata or {}),
+            )
+
+        return ElectricityGrid(
+            grid_id=grid_id,
+            name=grid_data.name or "Custom Electricity Grid",
+            description=grid_data.description or "",
+            nodes=ai_nodes,
+            lines=ai_lines,
+            metadata=dict(getattr(grid_data, "metadata", {}) or {}),
+        )
+
+    def _electricity_grid_to_pydantic(
+        self,
+        eg: ElectricityGrid,
+        is_active: bool = False,
+        is_reference: bool = False,
+    ) -> GridDetailResponse:
+        """Converts an ElectricityGrid instance into a GridDetailResponse."""
+        nodes: List[GridNode] = []
+        edges: List[GridEdge] = []
+
+        type_map = {
+            AINodeType.GENERATOR: NodeType.CONVENTIONAL_GENERATOR,
+            AINodeType.SOLAR: NodeType.SOLAR_PLANT,
+            AINodeType.WIND: NodeType.WIND_PLANT,
+            AINodeType.BATTERY: NodeType.BATTERY,
+            AINodeType.SUBSTATION: NodeType.SUBSTATION,
+            AINodeType.LOAD_NORMAL: NodeType.LOAD,
+            AINodeType.LOAD_CRITICAL: NodeType.CRITICAL_LOAD,
+        }
+
+        status_map = {
+            AIComponentStatus.ONLINE: NodeStatus.ONLINE,
+            AIComponentStatus.OFFLINE: NodeStatus.OFFLINE,
+            AIComponentStatus.DEGRADED: NodeStatus.DEGRADED,
+            AIComponentStatus.TRIPPED: NodeStatus.OFFLINE,
+            AIComponentStatus.MAINTENANCE: NodeStatus.DEGRADED,
+        }
+
+        crit_map = {
+            AICriticalityLevel.LOW: NodeCriticality.LOW,
+            AICriticalityLevel.MEDIUM: NodeCriticality.MEDIUM,
+            AICriticalityLevel.HIGH: NodeCriticality.HIGH,
+            AICriticalityLevel.CRITICAL: NodeCriticality.CRITICAL,
+        }
+
+        for n in eg.nodes.values():
+            pos_dict = n.metadata.get("position") if isinstance(n.metadata, dict) else None
+            pos = (
+                GridNodePosition(x=float(pos_dict["x"]), y=float(pos_dict["y"]))
+                if isinstance(pos_dict, dict) and "x" in pos_dict and "y" in pos_dict
+                else None
+            )
+
+            cap = n.operational.max_capacity_mw
+            output = (
+                n.operational.generation_mw
+                if n.node_type in (AINodeType.GENERATOR, AINodeType.SOLAR, AINodeType.WIND, AINodeType.BATTERY)
+                else n.operational.demand_mw
+            )
+            util_pct = (output / cap * 100.0) if cap > 0 else 0.0
+
+            nodes.append(
+                GridNode(
+                    id=n.id,
+                    name=n.name,
+                    type=type_map.get(n.node_type, NodeType.LOAD),
+                    capacity_mw=cap,
+                    current_output_mw=output,
+                    status=status_map.get(n.status, NodeStatus.ONLINE),
+                    criticality=crit_map.get(n.risk.criticality, NodeCriticality.MEDIUM),
+                    utilization_percent=round(util_pct, 2),
+                    risk_score=round(n.risk.risk_score / 100.0 if n.risk.risk_score > 1.0 else n.risk.risk_score, 4),
+                    latitude=n.location.get("lat") if n.location else None,
+                    longitude=n.location.get("lon") if n.location else None,
+                    position=pos,
+                    metadata=dict(n.metadata or {}),
+                )
+            )
+
+        for l in eg.lines.values():
+            e_status = EdgeStatus.TRIPPED if l.status == AIComponentStatus.TRIPPED else EdgeStatus.NORMAL
+            edges.append(
+                GridEdge(
+                    id=l.id,
+                    source=l.source_node_id,
+                    target=l.target_node_id,
+                    capacity_mw=l.capacity_mw,
+                    power_flow_mw=l.current_flow_mw,
+                    utilization_percent=round(l.utilization_pct, 2),
+                    status=e_status,
+                    risk_score=round(l.risk.risk_score / 100.0 if l.risk.risk_score > 1.0 else l.risk.risk_score, 4),
+                    resistance_ohms=l.resistance_ohm,
+                    reactance_ohms=l.reactance_ohm,
+                    metadata=dict(l.metadata or {}),
+                )
+            )
+
+        tot_gen = eg.total_generation_mw
+        tot_dem = eg.total_demand_mw
+        ren_pct = (eg.total_renewable_generation_mw / tot_gen * 100.0) if tot_gen > 0 else 0.0
+        bat_node = next((n for n in eg.nodes.values() if n.node_type == AINodeType.BATTERY), None)
+        bat_soc = bat_node.operational.battery_soc_pct if bat_node else 0.0
+
+        summary = GridSummary(
+            total_generation_mw=round(tot_gen, 2),
+            total_demand_mw=round(tot_dem, 2),
+            renewable_percentage=round(ren_pct, 2),
+            battery_soc=round(bat_soc, 2),
+            grid_risk_index=0.10,
+            active_contingencies_count=sum(1 for l in eg.lines.values() if l.status != AIComponentStatus.ONLINE),
+            net_power_balance_mw=round(tot_gen - tot_dem, 2),
+        )
+
+        val_errors = eg.validate_grid()
+
+        return GridDetailResponse(
+            grid_id=eg.grid_id,
+            name=eg.name,
+            description=eg.description,
+            is_reference=is_reference,
+            is_active=is_active,
+            nodes=nodes,
+            edges=edges,
+            summary=summary,
+            validation_errors=val_errors,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
     def get_all_component_ids(self) -> Set[str]:
-        """Returns the set of all valid node and edge identifiers."""
-        node_ids = {node.id for node in self._nodes}
-        edge_ids = {edge.id for edge in self._edges}
+        """Returns the set of all valid node and edge identifiers for active grid."""
+        active_eg = self.get_active_grid()
+        node_ids = set(active_eg.nodes.keys())
+        edge_ids = set(active_eg.lines.keys())
         return node_ids.union(edge_ids)
 
     def component_exists(self, component_id: str) -> bool:
-        """Validates whether a component exists in the grid topology."""
+        """Validates whether a component exists in the active grid topology."""
         return component_id in self.get_all_component_ids()
 
     def get_node_by_id(self, node_id: str) -> Optional[GridNode]:
-        """Retrieves a specific node by ID."""
-        for node in self._nodes:
+        """Retrieves a specific node by ID from active grid state."""
+        state = self.get_grid_state()
+        for node in state.nodes:
             if node.id == node_id:
                 return node
         return None
 
     def get_edge_by_id(self, edge_id: str) -> Optional[GridEdge]:
-        """Retrieves a specific transmission edge by ID."""
-        for edge in self._edges:
+        """Retrieves a specific transmission edge by ID from active grid state."""
+        state = self.get_grid_state()
+        for edge in state.edges:
             if edge.id == edge_id:
                 return edge
         return None
 
 
 grid_service = GridService()
+

@@ -279,9 +279,20 @@ class AIModuleBridge:
                 ),
             )
 
+        gid = (
+            getattr(backend_grid_state, "grid_id", None)
+            or (backend_grid_state.get("grid_id") if isinstance(backend_grid_state, dict) else None)
+            or "reference_demo_grid"
+        )
+        gname = (
+            getattr(backend_grid_state, "name", None)
+            or (backend_grid_state.get("name") if isinstance(backend_grid_state, dict) else None)
+            or "PULSEiQ Active Grid Twin"
+        )
+
         return ElectricityGrid(
-            grid_id="pulseiq-digital-twin",
-            name="PULSEiQ Active Grid Twin",
+            grid_id=gid,
+            name=gname,
             nodes=ai_nodes,
             lines=ai_lines,
             metadata={"source": "backend_grid_service"},
