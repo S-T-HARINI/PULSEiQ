@@ -1,0 +1,60 @@
+{
+  "model_name": "HistGradientBoostingRegressor",
+  "dataset_name": "UCI Electricity Load Diagrams (LD2011_2014)",
+  "trained_at": "2026-08-30T10:39:55.045870",
+  "training_duration_seconds": 0.95,
+  "total_hourly_records": 26137,
+  "train_rows": 18295,
+  "val_rows": 3920,
+  "test_rows": 3922,
+  "feature_columns": [
+    "hour",
+    "hour_sin",
+    "hour_cos",
+    "day_of_week",
+    "dow_sin",
+    "dow_cos",
+    "day_of_month",
+    "month",
+    "month_sin",
+    "month_cos",
+    "is_weekend",
+    "lag_1",
+    "lag_2",
+    "lag_3",
+    "lag_24",
+    "lag_48",
+    "lag_168",
+    "rolling_mean_6",
+    "rolling_mean_24",
+    "rolling_std_24",
+    "rolling_min_24",
+    "rolling_max_24",
+    "daily_ratio"
+  ],
+  "baseline_metrics": {
+    "mae": 8.8061,
+    "rmse": 15.1125,
+    "mape_pct": 3.949,
+    "r2": 0.9699
+  },
+  "validation_metrics": {
+    "mae": 3.8286,
+    "rmse": 5.6708,
+    "mape_pct": 8.868,
+    "r2": 0.9942
+  },
+  "test_metrics": {
+    "mae": 4.5091,
+    "rmse": 6.5816,
+    "mape_pct": 2.018,
+    "r2": 0.9943
+  },
+  "improvement_over_baseline_mae_pct": 48.8,
+  "error_residual_std": 5.6706,
+  "error_q10": -5.8722,
+  "error_q90": 5.7832,
+  "mean_demand_mw": 216.72,
+  "max_demand_mw": 448.15,
+  "min_demand_mw": 4.29
+}

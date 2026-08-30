@@ -16,7 +16,7 @@ from ai.forecasting import (
     generate_synthetic_weather,
     generate_synthetic_wind_dataset,
 )
-from ai.forecasting.models import ForecastTarget
+from ai.forecasting.models import ForecastResult, ForecastTarget, TimeSeriesPoint
 from ai.models.grid import NodeType
 from ai.models.mock_grid import create_mock_grid
 
@@ -106,3 +106,121 @@ def test_grid_forecaster_unified():
     assert "demand_forecasts" in summary_dict
     assert "solar_forecasts" in summary_dict
     assert "wind_forecasts" in summary_dict
+
+
+def test_saved_model_artifact_loading():
+    """Verify that demand_model.joblib and model_metadata.json exist and are readable."""
+    import os
+    import json
+    import joblib
+    from ai.forecasting.forecaster import DEFAULT_DEMAND_MODEL_PATH, DEFAULT_METADATA_PATH
+
+    assert os.path.exists(DEFAULT_DEMAND_MODEL_PATH), f"Model artifact missing at {DEFAULT_DEMAND_MODEL_PATH}"
+    assert os.path.exists(DEFAULT_METADATA_PATH), f"Metadata missing at {DEFAULT_METADATA_PATH}"
+
+    model = joblib.load(DEFAULT_DEMAND_MODEL_PATH)
+    assert hasattr(model, "predict"), "Loaded model must have a predict method"
+
+    with open(DEFAULT_METADATA_PATH, "r", encoding="utf-8") as f:
+        meta = json.load(f)
+
+    assert "feature_columns" in meta
+    assert len(meta["feature_columns"]) == 23
+    assert meta["model_name"] == "HistGradientBoostingRegressor"
+    assert "test_metrics" in meta
+    assert meta["test_metrics"]["mae"] > 0
+
+
+def test_demand_forecaster_uses_trained_model():
+    """Verify DemandForecaster automatically uses the trained model when artifact exists."""
+    forecaster = DemandForecaster(seed=42)
+
+    assert forecaster.is_trained_model is True
+    assert forecaster.model_loaded is True
+    assert forecaster.is_fitted is True
+    assert forecaster.model_name == "HistGradientBoostingRegressor-trained"
+    assert len(forecaster.feature_columns) == 23
+    assert forecaster.training_mae > 0.0
+    assert forecaster.training_rmse > 0.0
+
+
+def test_trained_model_24h_multi_step_inference():
+    """Verify 24-hour multi-step forecasting with dynamic autoregressive variation."""
+    grid = create_mock_grid()
+    hospital_node = grid.get_node("load_hospital_main")
+
+    forecaster = DemandForecaster(seed=42)
+    res = forecaster.predict(hospital_node, horizon_hours=24)
+
+    assert res.target_id == "load_hospital_main"
+    assert res.target_type == ForecastTarget.DEMAND
+    assert res.horizon_hours == 24
+    assert len(res.points) == 24
+    assert res.model_name == "HistGradientBoostingRegressor-trained"
+
+    # All values positive and non-negative
+    values = [pt.value_mw for pt in res.points]
+    assert all(v > 0 for v in values)
+    assert res.peak_mw == max(values)
+    assert res.min_mw == min(values)
+    assert round(res.average_mw, 2) == round(sum(values) / len(values), 2)
+    assert round(res.total_mwh, 2) == round(sum(values), 2)
+
+    # Valid confidence bounds
+    for pt in res.points:
+        assert pt.confidence_lower <= pt.value_mw <= pt.confidence_upper
+        assert pt.confidence_lower >= 0.0
+
+    # Ensure predictions are genuinely dynamic across the 24 hours (not constant/flat)
+    unique_values = set(round(v, 2) for v in values)
+    assert len(unique_values) >= 10, f"Expected dynamic curve, got {len(unique_values)} unique values"
+
+    # Verify metrics included
+    assert "mae" in res.metrics
+    assert "rmse" in res.metrics
+    assert "r2" in res.metrics
+
+
+def test_demand_forecaster_fallback_when_artifact_missing():
+    """Verify clean backward-compatible fallback when model artifact is unavailable."""
+    forecaster = DemandForecaster(
+        model_path="non_existent_model_file.joblib",
+        auto_load_artifact=False,
+        seed=42,
+    )
+
+    assert forecaster.is_trained_model is False
+    assert forecaster.model_loaded is False
+
+    grid = create_mock_grid()
+    hospital_node = grid.get_node("load_hospital_main")
+
+    # Should not crash, falls back to synthetic fitting
+    res = forecaster.predict(hospital_node, horizon_hours=24)
+    assert res.target_id == "load_hospital_main"
+    assert len(res.points) == 24
+    assert res.peak_mw > 0
+    assert all(pt.value_mw > 0 for pt in res.points)
+    assert res.model_name in ("XGBoostRegressor", "GradientBoostingRegressor")
+
+
+def test_forecast_result_serialization_roundtrip():
+    """Verify full serialization roundtrip for ForecastResult with trained model output."""
+    grid = create_mock_grid()
+    node = grid.get_node("load_residential_north")
+
+    forecaster = DemandForecaster(seed=42)
+    res = forecaster.predict(node, horizon_hours=24)
+
+    res_dict = res.to_dict()
+    assert res_dict["model_name"] == "HistGradientBoostingRegressor-trained"
+    assert len(res_dict["points"]) == 24
+    assert "metrics" in res_dict
+
+    restored = ForecastResult.from_dict(res_dict)
+    assert restored.target_id == res.target_id
+    assert restored.horizon_hours == 24
+    assert restored.model_name == res.model_name
+    assert len(restored.points) == 24
+    assert restored.points[0].value_mw == res.points[0].value_mw
+
