@@ -4,7 +4,7 @@ PULSEiQ is an advanced AI-powered electricity grid simulation, risk analysis, an
 
 ---
 
-## ⚡ Core Capabilities
+##  Core Capabilities
 
 - **AI/ML Forecasting (`ai/forecasting`)**: Multi-horizon load, solar PV, and wind generation forecasting with 10%–90% confidence bands.
 - **Power Flow & Monte Carlo Simulation (`ai/simulation`)**: Linear DC power flow calculation, branch line utilization, bus voltage profiles, LOLP (Loss of Load Probability), and EUE (Expected Unserved Energy).
@@ -15,7 +15,7 @@ PULSEiQ is an advanced AI-powered electricity grid simulation, risk analysis, an
 
 ---
 
-## 📁 Repository Structure
+##  Repository Structure
 
 ```
 PULSEiQ/
@@ -62,7 +62,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🧪 Running Tests
+##  Running Tests
 
 To run the complete test suite:
 
