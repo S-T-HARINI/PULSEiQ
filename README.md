@@ -14,7 +14,7 @@ PULSEiQ operates across five integrated layers:
 4. **Intelligence Layer (AI/ML & Solvers)**: Modular Python engines for time-series forecasting, power flow calculation, graph analytics, cascading failure analysis, and optimal dispatch.
 5. **Data & Testing Layer**: Grid topology models, telemetry datasets, and end-to-end automated integration test suites.
 
- ```mermaid
+```mermaid
 flowchart TD
     USER["Grid Operator / Dispatcher"]
 
@@ -53,7 +53,6 @@ flowchart TD
     FRONTEND <-->|Live Telemetry| WS
 
     API --> SERVICES
-    WS --> SERVICES
     SERVICES --> BRIDGE
 
     BRIDGE --> PIPE
@@ -153,7 +152,7 @@ The `ai/` package provides modular, backend-independent power systems intelligen
 - **Optimization (`ai/optimization`)**: Constrained economic power dispatch solver prioritizing zero-marginal-cost renewables, scheduling Battery Energy Storage Systems (BESS) within State of Charge limits, and enforcing critical load protection (hospitals, trauma centers).
 - **Unified Pipeline (`ai/pipeline`)**: `GridIntelligencePipeline` coordinates data validation, forecasting, power flow, graph analysis, and risk scoring into a single unified execution payload.
 
-For detailed documentation, see [ai/README.md](ai/README.md).
+For detailed documentation, see [ai/README.md](file:///c:/Users/hello/PULSEiQ/ai/README.md).
 
 ### 2. FastAPI Backend Service (`backend/`)
 
@@ -177,7 +176,7 @@ The backend layer coordinates API communication, schema validation, and real-tim
 | `POST` | `/api/v1/scenario/what-if` | Multi-stress what-if scenario simulation (Heatwave, Solar Ramp-Down, Wind Storm, N-1 Trip) |
 | `WS` | `/ws/grid` | Real-time WebSocket streaming for continuous grid telemetry frames |
 
-For detailed documentation, see [backend/README.md](backend/README.md).
+For detailed documentation, see [backend/README.md](file:///c:/Users/hello/PULSEiQ/backend/README.md).
 
 ### 3. Frontend Operator Interface (`frontend/`)
 
@@ -188,7 +187,7 @@ Built on Next.js 15, React 19, Tailwind CSS, @xyflow/react, and Recharts, the fr
 - **Telemetry & Generation Charts**: 24-hour time-series charts showing generation vs. load balance, solar and wind contribution, and frequency stability.
 - **AI Simulation & Scenario Modals**: Interactive interfaces to trigger N-1 contingency scans, cascading failure simulations, and climate/stress what-if scenarios.
 
-For detailed documentation, see [frontend/README.md](frontend/README.md).
+For detailed documentation, see [frontend/README.md](file:///c:/Users/hello/PULSEiQ/frontend/README.md).
 
 ### 4. Grid Digital Twin
 
