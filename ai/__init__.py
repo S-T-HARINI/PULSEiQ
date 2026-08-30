@@ -27,8 +27,10 @@ from ai.forecasting import (
 from ai.simulation import (
     SimulationResult,
     MonteCarloSummary,
+    MonteCarloDemandScenarioResult,
     solve_power_flow,
     run_monte_carlo_simulation,
+    simulate_monte_carlo_demand_scenarios,
 )
 from ai.risk import (
     GridRiskAssessment,
@@ -111,8 +113,10 @@ __all__ = [
     # Simulation
     "SimulationResult",
     "MonteCarloSummary",
+    "MonteCarloDemandScenarioResult",
     "solve_power_flow",
     "run_monte_carlo_simulation",
+    "simulate_monte_carlo_demand_scenarios",
     # Risk Assessment
     "GridRiskAssessment",
     "ContingencyResult",

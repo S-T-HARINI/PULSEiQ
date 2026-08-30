@@ -130,3 +130,48 @@ class MonteCarloSummary:
             "asset_trip_frequencies": dict(self.asset_trip_frequencies),
             "risk_score": round(self.risk_score, 2),
         }
+
+
+@dataclass
+class MonteCarloDemandScenarioResult:
+    """
+    Statistical summary and scenario trajectories of Monte Carlo demand simulations
+    generated from central XGBoost demand forecasts.
+    """
+    timestamps: List[str]
+    expected_forecast: List[float]
+    scenario_curves: List[List[float]]
+    mean_scenario_demand: List[float]
+    min_scenario_demand: List[float]
+    max_scenario_demand: List[float]
+    std_dev: List[float]
+    percentiles: Dict[str, List[float]]
+    num_scenarios: int
+    horizon_hours: int
+    uncertainty_std: float = 0.05
+    seed: int = 42
+    target_id: Optional[str] = None
+    target_name: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "target_id": self.target_id,
+            "target_name": self.target_name,
+            "horizon_hours": self.horizon_hours,
+            "num_scenarios": self.num_scenarios,
+            "uncertainty_std": self.uncertainty_std,
+            "seed": self.seed,
+            "timestamps": list(self.timestamps),
+            "expected_forecast": [round(v, 3) for v in self.expected_forecast],
+            "mean_scenario_demand": [round(v, 3) for v in self.mean_scenario_demand],
+            "min_scenario_demand": [round(v, 3) for v in self.min_scenario_demand],
+            "max_scenario_demand": [round(v, 3) for v in self.max_scenario_demand],
+            "std_dev": [round(v, 3) for v in self.std_dev],
+            "percentiles": {
+                k: [round(v, 3) for v in vals] for k, vals in self.percentiles.items()
+            },
+            "scenario_curves": [
+                [round(v, 3) for v in curve] for curve in self.scenario_curves
+            ],
+        }
+

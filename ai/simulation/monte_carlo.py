@@ -4,12 +4,105 @@ Simulates thousands of stochastic grid operating states, renewable intermittency
 and random equipment outage contingencies using NumPy and SciPy.
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
 
 from ai.models.grid import ComponentStatus, ElectricityGrid, NodeType, ScenarioConfig
-from ai.simulation.models import MonteCarloSummary
+from ai.simulation.models import MonteCarloDemandScenarioResult, MonteCarloSummary
 from ai.simulation.power_flow import solve_power_flow
+
+
+def simulate_monte_carlo_demand_scenarios(
+    forecast: Any,
+    num_scenarios: int = 100,
+    horizon_hours: int = 24,
+    uncertainty_std: float = 0.05,
+    seed: int = 42,
+    timestamps: Optional[List[str]] = None,
+    target_id: Optional[str] = None,
+    target_name: Optional[str] = None,
+) -> MonteCarloDemandScenarioResult:
+    """
+    Executes Monte Carlo stochastic simulation over an expected XGBoost demand forecast.
+
+    Required Flow:
+        Historical demand -> XGBoost DemandForecaster -> Future demand forecast
+        -> Monte Carlo simulation -> Multiple future demand scenarios -> Scenario statistics
+
+    Args:
+        forecast: ForecastResult object or list/array of hourly forecasted MW demand values.
+        num_scenarios: Number of stochastic paths to generate (configurable).
+        horizon_hours: Forecasting horizon length in hours (default: 24).
+        uncertainty_std: Gaussian standard deviation around expected demand (default: 0.05).
+        seed: Deterministic random seed for reproducibility.
+        timestamps: Optional list of continuous hourly timestamps.
+        target_id: Optional grid node identifier.
+        target_name: Optional grid node name.
+
+    Returns:
+        MonteCarloDemandScenarioResult containing timestamps, expected forecast,
+        individual scenario curves, mean, min, max, std dev, and percentiles.
+    """
+    if hasattr(forecast, "points"):
+        # ForecastResult instance from DemandForecaster
+        expected_curve = [float(pt.value_mw) for pt in forecast.points[:horizon_hours]]
+        ts_list = [str(pt.timestamp) for pt in forecast.points[:horizon_hours]]
+        target_id = target_id or getattr(forecast, "target_id", None)
+        target_name = target_name or getattr(forecast, "target_name", None)
+    elif isinstance(forecast, (list, tuple, np.ndarray)):
+        expected_curve = [float(v) for v in list(forecast)[:horizon_hours]]
+        ts_list = timestamps[:len(expected_curve)] if timestamps else [f"t+{i:02d}h" for i in range(len(expected_curve))]
+    else:
+        raise TypeError(f"Unsupported forecast input type: {type(forecast)}")
+
+    h_len = len(expected_curve)
+    if h_len == 0:
+        raise ValueError("Expected forecast curve cannot be empty.")
+
+    rng = np.random.RandomState(seed)
+
+    # Multiplicative Gaussian stochastic variations: Y_s,t = max(0.0, mu_t * (1 + epsilon_s,t))
+    noise_matrix = rng.normal(loc=0.0, scale=uncertainty_std, size=(num_scenarios, h_len))
+    expected_arr = np.array(expected_curve, dtype=float)
+    scenarios_arr = expected_arr * (1.0 + noise_matrix)
+
+    # Ensure generated demand values cannot become negative
+    scenarios_arr = np.maximum(0.0, scenarios_arr)
+
+    scenario_curves = scenarios_arr.tolist()
+
+    mean_demand = [float(np.mean(scenarios_arr[:, t])) for t in range(h_len)]
+    min_demand = [float(np.min(scenarios_arr[:, t])) for t in range(h_len)]
+    max_demand = [float(np.max(scenarios_arr[:, t])) for t in range(h_len)]
+    std_dev = [float(np.std(scenarios_arr[:, t])) for t in range(h_len)]
+
+    percentiles = {
+        "p10": [float(np.percentile(scenarios_arr[:, t], 10)) for t in range(h_len)],
+        "p25": [float(np.percentile(scenarios_arr[:, t], 25)) for t in range(h_len)],
+        "p50": [float(np.percentile(scenarios_arr[:, t], 50)) for t in range(h_len)],
+        "p75": [float(np.percentile(scenarios_arr[:, t], 75)) for t in range(h_len)],
+        "p90": [float(np.percentile(scenarios_arr[:, t], 90)) for t in range(h_len)],
+        "p95": [float(np.percentile(scenarios_arr[:, t], 95)) for t in range(h_len)],
+        "p99": [float(np.percentile(scenarios_arr[:, t], 99)) for t in range(h_len)],
+    }
+
+    return MonteCarloDemandScenarioResult(
+        timestamps=ts_list,
+        expected_forecast=expected_curve,
+        scenario_curves=scenario_curves,
+        mean_scenario_demand=mean_demand,
+        min_scenario_demand=min_demand,
+        max_scenario_demand=max_demand,
+        std_dev=std_dev,
+        percentiles=percentiles,
+        num_scenarios=num_scenarios,
+        horizon_hours=h_len,
+        uncertainty_std=uncertainty_std,
+        seed=seed,
+        target_id=target_id,
+        target_name=target_name,
+    )
+
 
 
 def run_monte_carlo_simulation(
